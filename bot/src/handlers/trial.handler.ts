@@ -17,10 +17,11 @@ export async function trialHandler(ctx: Context, botService: BotService) {
       return;
     }
 
-    if (user.trialUsed) {
-      await ctx.reply('❌ Вы уже использовали пробный период. Пожалуйста, купите подписку: /buy');
-      return;
-    }
+    // Убрана проверка trialUsed для тестирования - можно использовать trial неограниченное количество раз
+    // if (user.trialUsed) {
+    //   await ctx.reply('❌ Вы уже использовали пробный период. Пожалуйста, купите подписку: /buy');
+    //   return;
+    // }
 
     // Запускаем trial
     user = await botService.startTrial(user.id, 24);

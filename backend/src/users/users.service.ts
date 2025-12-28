@@ -54,15 +54,17 @@ export class UsersService {
   async startTrial(userId: string, hours: number = 24): Promise<User> {
     const user = await this.findById(userId);
     
-    if (user.trialUsed) {
-      throw new Error('Trial already used');
-    }
+    // Убрана проверка trialUsed для тестирования - можно использовать trial неограниченное количество раз
+    // if (user.trialUsed) {
+    //   throw new Error('Trial already used');
+    // }
 
     const now = new Date();
     const expiresAt = new Date(now.getTime() + hours * 60 * 60 * 1000);
 
     user.status = UserStatus.TRIAL;
-    user.trialUsed = true;
+    // Убрана установка trialUsed = true для тестирования
+    // user.trialUsed = true;
     user.trialStartedAt = now;
     user.trialExpiresAt = expiresAt;
     user.expireAt = expiresAt;

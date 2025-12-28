@@ -52,11 +52,13 @@ export async function statusHandler(ctx: Context, botService: BotService) {
       message += `*Действует до:* ${user.status === 'trial' && trialExpiresAt ? trialExpiresAt : expireAt}\n`;
     }
 
-    if (user.trialUsed) {
-      message += `*Пробный период:* Использован\n`;
-    } else {
-      message += `*Пробный период:* Доступен\n`;
-    }
+    // Убрано отображение статуса trialUsed для тестирования
+    // if (user.trialUsed) {
+    //   message += `*Пробный период:* Использован\n`;
+    // } else {
+    //   message += `*Пробный период:* Доступен\n`;
+    // }
+    message += `*Пробный период:* Доступен (без ограничений для тестирования)\n`;
 
     message += `\n/start - Главное меню\n/buy - Купить подписку\n/devices - Мои устройства`;
 
