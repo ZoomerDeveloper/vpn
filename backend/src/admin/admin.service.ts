@@ -39,9 +39,12 @@ export class AdminService {
         try {
           // Используем SSH для выполнения команды на удаленном сервере
           // Предполагаем что SSH настроен без пароля (ключи)
-          const sshCommand = `ssh -o StrictHostKeyChecking=no -o ConnectTimeout=5 root@${serverHost} "wg show ${interfaceName} 2>&1"`;
+          // Добавляем логирование для отладки
+          const sshCommand = `ssh -o StrictHostKeyChecking=no -o ConnectTimeout=5 -o BatchMode=yes root@${serverHost} "wg show ${interfaceName} 2>&1"`;
+          this.logger.debug(`Executing SSH command: ssh root@${serverHost}`);
           const result = await execAsync(sshCommand);
           stdout = result.stdout;
+          this.logger.debug(`SSH command succeeded, output length: ${stdout.length}`);
         } catch (error: any) {
           this.logger.warn(`Failed to check remote server ${serverHost}: ${error.message}`);
           // Возвращаем пустой результат если не удалось подключиться

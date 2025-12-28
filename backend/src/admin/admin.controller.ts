@@ -240,11 +240,15 @@ export class AdminController {
     for (const server of servers) {
       if (server.isActive) {
         try {
-          // Используем host (IP адрес сервера) для SSH подключения
-          const serverStatus = await this.adminService.getWireguardStatus(server.id, server.host);
+          // Используем publicIp для SSH подключения (если host не настроен или это домен)
+          // Предпочтительно использовать publicIp, так как это реальный IP адрес сервера
+          const serverHost = server.publicIp || server.host;
+          this.logger.debug(`Checking server ${server.name} (${server.id}) at ${serverHost}`);
+          const serverStatus = await this.adminService.getWireguardStatus(server.id, serverHost);
           allWgStatus[server.id] = serverStatus;
+          this.logger.debug(`Server ${server.name}: found ${Object.keys(serverStatus).length} peers`);
         } catch (error) {
-          this.logger.warn(`Failed to get status for server ${server.name}: ${error.message}`);
+          this.logger.warn(`Failed to get status for server ${server.name} (${server.id}): ${error.message}`);
           allWgStatus[server.id] = {};
         }
       }
