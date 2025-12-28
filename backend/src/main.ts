@@ -17,11 +17,6 @@ async function bootstrap() {
 
   app.enableCors();
 
-  // Статические файлы для админки
-  app.useStaticAssets(join(__dirname, '..', 'admin'), {
-    prefix: '/admin/',
-  });
-
   const port = process.env.PORT || 3000;
   await app.listen(port);
   

@@ -6,14 +6,17 @@ import {
   Param,
   Body,
   Req,
+  Res,
   UnauthorizedException,
 } from '@nestjs/common';
-import { Request } from 'express';
+import { Request, Response } from 'express';
 import { AdminService } from './admin.service';
 import { UsersService } from '../users/users.service';
 import { PaymentsService } from '../payments/payments.service';
 import { VpnService } from '../vpn/vpn.service';
 import { WireguardService } from '../wireguard/wireguard.service';
+import * as path from 'path';
+import * as fs from 'fs';
 
 @Controller('admin')
 export class AdminController {
@@ -30,6 +33,79 @@ export class AdminController {
     if (!token || !this.adminService.validateToken(token)) {
       throw new UnauthorizedException('Invalid admin token');
     }
+  }
+
+  @Get()
+  adminPage(@Res() res: Response, @Req() req: Request) {
+    const token = req.query.token as string;
+    if (!token || !this.adminService.validateToken(token)) {
+      return res.status(401).send('Unauthorized. Please provide valid token in query parameter.');
+    }
+
+    // Путь к HTML файлу - пробуем несколько вариантов
+    const possiblePaths = [
+      path.join(process.cwd(), 'admin', 'index.html'), // В корне проекта
+      path.join(__dirname, '..', '..', 'admin', 'index.html'), // От dist/admin
+      path.join(__dirname, '..', 'admin', 'index.html'), // От dist/admin (если скопировано)
+    ];
+    
+    let adminHtmlPath: string | null = null;
+    for (const p of possiblePaths) {
+      if (fs.existsSync(p)) {
+        adminHtmlPath = p;
+        break;
+      }
+    }
+    
+    if (adminHtmlPath) {
+      return res.sendFile(path.resolve(adminHtmlPath));
+    }
+    
+    // Если файл не найден, возвращаем простую HTML страницу с встроенным интерфейсом
+    return res.send(`<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VPN Admin Panel</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f5f5f5; color: #333; }
+        .header { background: #2563eb; color: white; padding: 1rem 2rem; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .container { max-width: 1400px; margin: 0 auto; padding: 2rem; }
+        .error { background: #fee2e2; color: #991b1b; padding: 1rem; border-radius: 6px; margin-bottom: 1rem; }
+        .info { background: #dbeafe; color: #1e40af; padding: 1rem; border-radius: 6px; margin-bottom: 1rem; }
+        .endpoints { background: white; padding: 1.5rem; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .endpoints ul { list-style: none; margin-top: 1rem; }
+        .endpoints li { padding: 0.5rem 0; border-bottom: 1px solid #e5e5e5; }
+        .endpoints code { background: #f3f4f6; padding: 0.25rem 0.5rem; border-radius: 4px; font-family: monospace; }
+    </style>
+</head>
+<body>
+    <div class="header"><h1>🔐 VPN Admin Panel</h1></div>
+    <div class="container">
+        <div class="error">
+            <strong>Внимание:</strong> HTML файл админки не найден. Используйте API endpoints напрямую или проверьте путь к файлу.
+        </div>
+        <div class="info">
+            Проверьте что файл <code>backend/admin/index.html</code> существует и скопирован при билде в <code>backend/dist/admin/index.html</code>
+        </div>
+        <div class="endpoints">
+            <h2>API Endpoints:</h2>
+            <ul>
+                <li><code>GET /admin/stats?token=${token}</code> - Статистика</li>
+                <li><code>GET /admin/users?token=${token}</code> - Список пользователей</li>
+                <li><code>GET /admin/payments?token=${token}</code> - Список платежей</li>
+                <li><code>GET /admin/servers?token=${token}</code> - Список серверов</li>
+                <li><code>POST /admin/users/:id/reset-trial?token=${token}</code> - Сбросить trial</li>
+                <li><code>PATCH /admin/vpn/peers/:peerId/activate?token=${token}</code> - Активировать peer</li>
+                <li><code>PATCH /admin/vpn/peers/:peerId/deactivate?token=${token}</code> - Деактивировать peer</li>
+                <li><code>POST /admin/payments/:id/confirm?token=${token}</code> - Подтвердить платеж</li>
+            </ul>
+        </div>
+    </div>
+</body>
+</html>`);
   }
 
 
