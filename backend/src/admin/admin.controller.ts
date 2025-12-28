@@ -207,7 +207,7 @@ export class AdminController {
       const peers = user.peers || [];
       const peersWithStatus = peers.map((peer) => {
         if (peer.isActive && peer.publicKey) {
-            const peerData = wgStatus[peer.publicKey];
+          const peerData = wgStatus[peer.publicKey];
           if (peerData) {
             // Определяем подключен ли peer
             // Peer считается подключенным если есть handshake не старше 3 минут
@@ -267,4 +267,4 @@ export class AdminController {
 
     return usersWithStatus;
   }
-
+}
