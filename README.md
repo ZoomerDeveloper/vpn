@@ -58,6 +58,7 @@ Telegram-бот для продажи VPN-доступа на базе WireGuard
 - **[ARCHITECTURE.md](docs/ARCHITECTURE.md)** - Архитектура системы
 - **[API.md](docs/API.md)** - API документация
 - **[ADMIN.md](docs/ADMIN.md)** - Админ панель ⭐
+- **[VPN_RU_TROUBLESHOOTING.md](docs/VPN_RU_TROUBLESHOOTING.md)** - Решение проблем VPN в РФ ⭐
 - **[EXAMPLES.md](docs/EXAMPLES.md)** - Примеры использования
 - **[FEATURES.md](docs/FEATURES.md)** - Функции и планы
 - **[RU_README.md](docs/RU_README.md)** - Полное руководство на русском
