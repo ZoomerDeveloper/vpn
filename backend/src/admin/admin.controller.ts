@@ -215,15 +215,15 @@ export class AdminController {
             if (peerData.latestHandshake && peerData.latestHandshake.trim() !== '') {
               const handshake = peerData.latestHandshake.toLowerCase().trim();
               
-              // Если handshake есть, проверяем его возраст
+              // Проверяем что handshake не слишком старый
               if (!handshake.includes('day') && 
                   !handshake.includes('week') && 
                   !handshake.includes('month') &&
                   !handshake.includes('hour')) {
-                // Проверяем минуты
+                // Ищем минуты в формате "X minute(s)" или "X minute, Y seconds"
                 const minutesMatch = handshake.match(/(\d+)\s*minute/);
                 if (!minutesMatch) {
-                  // Нет минут - значит секунды, точно подключен
+                  // Нет упоминания минут - значит только секунды, точно подключен
                   connected = true;
                 } else {
                   const minutes = parseInt(minutesMatch[1], 10);
@@ -231,7 +231,7 @@ export class AdminController {
                   connected = minutes < 3;
                 }
               }
-              // Если старше часа - точно не подключен (connected останется false)
+              // Если старше часа - connected останется false
             } else {
               // Нет handshake вообще - не подключен
               connected = false;

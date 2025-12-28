@@ -23,22 +23,22 @@ export class AdminService {
     try {
       const interfaceName = this.configService.get('WG_INTERFACE') || 'wg0';
       
-      // Пробуем выполнить wg show (с sudo если доступно, без sudo если работает)
+      // Пробуем выполнить wg show
+      // Сначала пробуем без sudo (если запущено от root, sudo не нужен)
       let stdout: string;
       try {
-        // Сначала пробуем с sudo (обычно нужен для wg show)
-        const result = await execAsync(`sudo wg show ${interfaceName} 2>&1`);
+        const result = await execAsync(`wg show ${interfaceName} 2>&1`);
         stdout = result.stdout;
-        // Если в выводе есть ошибка sudo (требует пароль), пробуем без sudo
-        if (stdout.includes('password') || stdout.includes('sudo:')) {
-          throw new Error('Sudo requires password');
-        }
       } catch (error: any) {
-        // Если sudo не работает, пробуем без sudo
-        this.logger.debug(`Trying wg show without sudo: ${error.message}`);
+        // Если без sudo не работает, пробуем с sudo (для обычных пользователей)
+        this.logger.debug(`Trying wg show with sudo: ${error.message}`);
         try {
-          const result = await execAsync(`wg show ${interfaceName} 2>&1`);
+          const result = await execAsync(`sudo wg show ${interfaceName} 2>&1`);
           stdout = result.stdout;
+          // Проверяем что это не ошибка sudo
+          if (stdout.includes('password') || stdout.includes('sudo:')) {
+            throw new Error('Sudo requires password');
+          }
         } catch (err: any) {
           this.logger.error(`Failed to execute wg show: ${err.message}`);
           throw err;
@@ -132,23 +132,27 @@ export class AdminService {
 
     // Peer считается подключенным если есть handshake не старше 3 минут
     let connected = false;
-    if (peer.latestHandshake) {
-      const handshake = peer.latestHandshake.toLowerCase();
-      // Если есть handshake и он не содержит день/неделю/месяц
+    if (peer.latestHandshake && peer.latestHandshake.trim() !== '') {
+      const handshake = peer.latestHandshake.toLowerCase().trim();
+      
+      // Проверяем что handshake не слишком старый (не дни/недели/месяцы/часы)
       if (!handshake.includes('day') && 
           !handshake.includes('week') && 
           !handshake.includes('month') &&
           !handshake.includes('hour')) {
-        // Проверяем минуты (берем первое число из строки)
+        
+        // Ищем минуты в формате "X minute(s)" или "X minute, Y seconds"
         const minutesMatch = handshake.match(/(\d+)\s*minute/);
         if (!minutesMatch) {
-          // Нет упоминания минут - значит секунды, значит подключен
+          // Нет упоминания минут - значит только секунды (например "37 seconds ago"), точно подключен
           connected = true;
         } else {
-          const minutes = parseInt(minutesMatch[1]);
-          connected = minutes < 3; // Менее 3 минут считаем подключенным
+          const minutes = parseInt(minutesMatch[1], 10);
+          // Менее 3 минут считаем подключенным
+          connected = minutes < 3;
         }
       }
+      // Если старше часа - connected останется false
     }
 
     return {
