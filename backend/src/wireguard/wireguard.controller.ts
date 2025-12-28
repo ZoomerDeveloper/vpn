@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Param, Delete } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, Delete, Patch } from '@nestjs/common';
 import { WireguardService } from './wireguard.service';
 
 @Controller('wireguard')
@@ -38,6 +38,25 @@ export class WireguardController {
   ) {
     await this.wireguardService.addPeer(serverId, body.publicKey, body.allocatedIp, body.presharedKey);
     return { message: 'Peer added successfully' };
+  }
+
+  @Patch('servers/:id')
+  async updateServer(
+    @Param('id') id: string,
+    @Body() updateData: {
+      name?: string;
+      host?: string;
+      port?: number;
+      publicIp?: string;
+      privateIp?: string;
+      endpoint?: string;
+      network?: string;
+      dns?: string;
+      isActive?: boolean;
+      maxPeers?: number;
+    },
+  ) {
+    return this.wireguardService.updateServer(id, updateData);
   }
 
   @Delete('servers/:serverId/peers/:publicKey')

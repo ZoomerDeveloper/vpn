@@ -22,20 +22,38 @@ if [ -z "$SERVER_ID" ]; then
     echo -e "${YELLOW}Получаю список серверов...${NC}"
     SERVERS=$(curl -s "${API_URL}/wireguard/servers")
     
-    if echo "$SERVERS" | grep -q "\[\]"; then
+    # Проверяем что ответ не пустой
+    if [ -z "$SERVERS" ] || echo "$SERVERS" | grep -q "^\[\]$"; then
         echo -e "${RED}❌ Серверы не найдены${NC}"
+        echo -e "${YELLOW}Ответ API:${NC}"
+        echo "$SERVERS"
         exit 1
     fi
     
-    echo "$SERVERS" | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4 | while read id; do
-        SERVER_ID="$id"
-        break
-    done
+    # Извлекаем первый ID из JSON массива (используем более надежный способ)
+    # Пробуем разные методы извлечения
+    SERVER_ID=$(echo "$SERVERS" | python3 -c "import sys, json; data = json.load(sys.stdin); print(data[0]['id'] if isinstance(data, list) and len(data) > 0 else '')" 2>/dev/null)
+    
+    # Если Python не сработал, пробуем grep
+    if [ -z "$SERVER_ID" ]; then
+        SERVER_ID=$(echo "$SERVERS" | grep -oP '"id"\s*:\s*"\K[^"]+' | head -1)
+    fi
     
     if [ -z "$SERVER_ID" ]; then
-        echo -e "${RED}❌ Не удалось найти сервер${NC}"
+        echo -e "${RED}❌ Не удалось извлечь ID сервера${NC}"
+        echo -e "${YELLOW}Ответ API:${NC}"
+        echo "$SERVERS" | head -30
+        echo ""
+        echo -e "${YELLOW}Альтернативные варианты:${NC}"
+        echo "  1. Укажите ID сервера вручную:"
+        echo "     bash update-server-dns.sh $API_URL SERVER_ID"
+        echo ""
+        echo "  2. Обновите через базу данных:"
+        echo "     bash update-dns-db.sh"
         exit 1
     fi
+    
+    echo -e "${GREEN}✓ Найден сервер: ${SERVER_ID:0:8}...${NC}"
 fi
 
 echo -e "${GREEN}Обновляю DNS для сервера: $SERVER_ID${NC}"

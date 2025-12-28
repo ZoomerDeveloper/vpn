@@ -274,4 +274,26 @@ export class WireguardService {
 
     return this.serversRepository.save(server);
   }
+
+  async updateServer(
+    id: string,
+    updateData: Partial<{
+      name: string;
+      host: string;
+      port: number;
+      publicIp: string;
+      privateIp: string;
+      endpoint: string;
+      network: string;
+      dns: string;
+      isActive: boolean;
+      maxPeers: number;
+    }>,
+  ): Promise<VpnServer> {
+    const server = await this.findServerById(id);
+    
+    Object.assign(server, updateData);
+    
+    return this.serversRepository.save(server);
+  }
 }
