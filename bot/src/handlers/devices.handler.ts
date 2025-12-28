@@ -73,8 +73,15 @@ export async function deviceCallbackHandler(ctx: Context, botService: BotService
     const peerId = match[1];
     const config = await botService.getPeerConfig(peerId);
 
-    // Генерируем QR-код
-    const qrCodeDataUrl = await QRCode.toDataURL(config);
+    // Убеждаемся что config - это строка (не объект)
+    const configString = typeof config === 'string' ? config : String(config);
+
+    // Генерируем QR-код из текстовой конфигурации
+    const qrCodeDataUrl = await QRCode.toDataURL(configString, {
+      type: 'image/png',
+      errorCorrectionLevel: 'M',
+      margin: 1,
+    });
     const qrBuffer = Buffer.from(qrCodeDataUrl.split(',')[1], 'base64');
 
     // Отправляем QR-код

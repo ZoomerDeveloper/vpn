@@ -29,8 +29,15 @@ export async function trialHandler(ctx: Context, botService: BotService) {
     // Создаем peer и получаем конфиг
     const { peer, config } = await botService.createPeer(user.id);
 
-    // Генерируем QR-код
-    const qrCodeDataUrl = await QRCode.toDataURL(config);
+    // Убеждаемся что config - это строка (не объект)
+    const configString = typeof config === 'string' ? config : String(config);
+    
+    // Генерируем QR-код из текстовой конфигурации
+    const qrCodeDataUrl = await QRCode.toDataURL(configString, {
+      type: 'image/png',
+      errorCorrectionLevel: 'M',
+      margin: 1,
+    });
 
     const message = `
 ✅ *Пробный период активирован!*

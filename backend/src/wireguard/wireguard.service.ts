@@ -103,7 +103,9 @@ export class WireguardService {
     let config = `[Interface]\n`;
     config += `PrivateKey = ${privateKey}\n`;
     if (allocatedIp) {
-      config += `Address = ${allocatedIp}/32\n`; // Добавляем /32 для IPv4
+      // Убеждаемся что IP не содержит уже /32 или другой суффикс
+      const cleanIp = allocatedIp.split('/')[0];
+      config += `Address = ${cleanIp}/32\n`;
     }
     config += `DNS = ${dns}\n\n`;
     config += `[Peer]\n`;
