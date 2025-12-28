@@ -50,7 +50,13 @@ PUBLIC_IP=$(curl -s ifconfig.me || curl -s ipinfo.io/ip)
 PRIVATE_IP="10.0.0.1"
 NETWORK="10.0.0.0/24"
 INTERFACE="wg0"
-PORT=51820
+PORT=443  # Порт 443/UDP лучше проходит через DPI в РФ
+
+# Определяем подсеть по умолчанию (можно изменить через переменную окружения)
+if [ -n "$WG_NETWORK" ]; then
+    NETWORK="$WG_NETWORK"
+    PRIVATE_IP=$(echo "$NETWORK" | cut -d'/' -f1 | sed 's/\.0$/\.1/')
+fi
 
 # Определяем основной сетевой интерфейс
 MAIN_INTERFACE=$(ip route | grep default | awk '{print $5}' | head -1)
@@ -67,8 +73,9 @@ cat > /etc/wireguard/${INTERFACE}.conf <<EOF
 Address = ${PRIVATE_IP}/24
 ListenPort = ${PORT}
 PrivateKey = ${SERVER_PRIVATE_KEY}
-PostUp = iptables -A FORWARD -i %i -j ACCEPT; iptables -A FORWARD -o %i -j ACCEPT; iptables -t nat -A POSTROUTING -o ${MAIN_INTERFACE} -j MASQUERADE
-PostDown = iptables -D FORWARD -i %i -j ACCEPT; iptables -D FORWARD -o %i -j ACCEPT; iptables -t nat -D POSTROUTING -o ${MAIN_INTERFACE} -j MASQUERADE
+MTU = 1280
+PostUp = iptables -A FORWARD -i %i -j ACCEPT; iptables -A FORWARD -o %i -j ACCEPT; iptables -t nat -A POSTROUTING -s ${NETWORK} -o ${MAIN_INTERFACE} -j MASQUERADE
+PostDown = iptables -D FORWARD -i %i -j ACCEPT; iptables -D FORWARD -o %i -j ACCEPT; iptables -t nat -D POSTROUTING -s ${NETWORK} -o ${MAIN_INTERFACE} -j MASQUERADE
 
 # Peers will be added here by the backend
 EOF
@@ -81,23 +88,29 @@ systemctl start wg-quick@${INTERFACE}
 
 echo "✓ WireGuard configured"
 echo ""
-echo "Server Public Key: ${SERVER_PUBLIC_KEY}"
-echo "Server Public IP: ${PUBLIC_IP}"
-echo "Server Private IP: ${PRIVATE_IP}"
-echo "Network: ${NETWORK}"
-echo "Port: ${PORT}"
+echo "✅ Конфигурация сервера:"
+echo "  Server Public Key: ${SERVER_PUBLIC_KEY}"
+echo "  Server Public IP: ${PUBLIC_IP}"
+echo "  Server Private IP: ${PRIVATE_IP}"
+echo "  Network: ${NETWORK}"
+echo "  Port: ${PORT} (UDP)"
+echo "  MTU: 1280"
+echo "  DNS: 1.1.1.1"
 echo ""
-echo "Add this server to the backend with:"
+echo "📝 Для регистрации в backend используйте:"
+echo "  bash scripts/register-wireguard-server.sh http://API_SERVER_IP:3000 server2"
+echo ""
+echo "Или через API:"
 echo "  POST /wireguard/servers"
 echo "  {"
-echo "    \"name\": \"server1\","
+echo "    \"name\": \"server2\","
 echo "    \"host\": \"${PUBLIC_IP}\","
 echo "    \"port\": ${PORT},"
 echo "    \"publicIp\": \"${PUBLIC_IP}\","
 echo "    \"privateIp\": \"${PRIVATE_IP}\","
 echo "    \"endpoint\": \"${PUBLIC_IP}\","
 echo "    \"network\": \"${NETWORK}\","
-echo "    \"dns\": \"1.1.1.1,8.8.8.8\","
+echo "    \"dns\": \"1.1.1.1\","
 echo "    \"publicKey\": \"${SERVER_PUBLIC_KEY}\","
 echo "    \"privateKey\": \"${SERVER_PRIVATE_KEY}\""
 echo "  }"
