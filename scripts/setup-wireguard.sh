@@ -22,12 +22,13 @@ sysctl -p
 mkdir -p /etc/wireguard
 cd /etc/wireguard
 
-# Генерируем ключи сервера
+# Генерируем ключи сервера (сохраняем для последующей регистрации)
 if [ ! -f server_private.key ]; then
     wg genkey | tee server_private.key | wg pubkey > server_public.key
     chmod 600 server_private.key
     chmod 644 server_public.key
     echo "✓ Generated server keys"
+    echo "✓ Ключи сохранены в /etc/wireguard/ для последующей регистрации"
 fi
 
 # Читаем ключи

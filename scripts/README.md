@@ -74,39 +74,91 @@ SSHPASS='your_password' ./scripts/deploy.sh 199.247.7.185 root
 
 ### 4. setup-wireguard.sh
 
-Настройка WireGuard на VPN сервере (запускается НА сервере, не через SSH).
+Настройка WireGuard на VPN сервере (запускается **НА сервере**, не через SSH).
+
+**Использование:**
+
+```bash
+# На сервере
+ssh root@your-server
+bash /opt/vpn-service/scripts/setup-wireguard.sh
+```
+
+**Что делает:**
+- Устанавливает WireGuard
+- Генерирует ключи сервера
+- Настраивает интерфейс wg0
+- Включает IP forwarding
+- Запускает WireGuard
+
+### 5. register-wireguard-server.sh ⭐
+
+Автоматическая регистрация WireGuard сервера в Backend API (запускается **НА сервере**).
+
+**Использование:**
+
+```bash
+# На сервере где настроен WireGuard
+ssh root@your-server
+cd /opt/vpn-service
+bash scripts/register-wireguard-server.sh
+
+# Или с указанием API URL
+bash scripts/register-wireguard-server.sh http://localhost:3000 server1
+```
+
+**Что делает:**
+- Проверяет что WireGuard настроен
+- Получает public key и IP адреса
+- Регистрирует сервер через Backend API
+- Возвращает Server ID
+
+**Важно:** Этот скрипт должен запускаться **после** того как:
+1. WireGuard настроен (через setup-wireguard.sh)
+2. Backend API запущен
+3. БД инициализирована
 
 ## Пример полного деплоя
 
 ```bash
-# 1. Настройка сервера
+# 1. Настройка сервера (локально)
 SSHPASS='your_ssh_password' ./scripts/setup-server.sh 199.247.7.185 root
 
-# 2. Настройка PostgreSQL
+# 2. Настройка PostgreSQL (локально)
 SSHPASS='your_ssh_password' ./scripts/setup-postgres.sh 199.247.7.185 root
-# Введите пароль для PostgreSQL пользователя
 
-# 3. Деплой приложения
+# 3. Деплой приложения (локально)
 SSHPASS='your_ssh_password' ./scripts/deploy.sh 199.247.7.185 root https://github.com/your/repo.git
 
-# 4. Подключитесь к серверу для настройки .env
+# 4. Подключитесь к серверу
 ssh root@199.247.7.185
 
-# 5. На сервере настройте .env файлы
+# 5. На сервере: Настройте .env файлы
 cd /opt/vpn-service/backend
-cp .env.example .env
 nano .env  # Настройте файл
 
 cd ../bot
-cp .env.example .env
 nano .env  # Настройте файл
 
-# 6. Запустите миграции и seed
+# 6. На сервере: Запустите seed
 cd /opt/vpn-service/backend
-npm run migration:run  # Если есть миграции
-ts-node src/database/seeds/seed.ts  # Заполнение тарифов
+npx ts-node src/database/seeds/seed.ts
 
-# 7. Настройте systemd services (см. docs/DEPLOY.md)
+# 7. На сервере: Настройте WireGuard (если это VPN сервер)
+cd /opt/vpn-service
+bash scripts/setup-wireguard.sh
+
+# 8. На сервере: Запустите Backend (в отдельном терминале или через systemd)
+cd /opt/vpn-service/backend
+npm run start:prod
+
+# 9. На сервере: Зарегистрируйте WireGuard сервер (в другом терминале)
+cd /opt/vpn-service
+bash scripts/register-wireguard-server.sh http://localhost:3000 server1
+
+# 10. На сервере: Запустите Bot
+cd /opt/vpn-service/bot
+npm run start
 ```
 
 ## Безопасность
@@ -132,3 +184,6 @@ ts-node src/database/seeds/seed.ts  # Заполнение тарифов
 **Ошибка прав доступа:**
 - Убедитесь что запускаете скрипты с правами выполнения: `chmod +x scripts/*.sh`
 
+**Ошибка 500 при /trial:**
+- Проверьте что WireGuard сервер зарегистрирован: `curl http://localhost:3000/wireguard/servers`
+- Если серверов нет, запустите: `bash scripts/register-wireguard-server.sh`
