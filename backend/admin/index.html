@@ -184,6 +184,15 @@
             background: #059669;
         }
 
+        .btn-warning {
+            background: #f59e0b;
+            color: white;
+        }
+
+        .btn-warning:hover {
+            background: #d97706;
+        }
+
         .btn-small {
             padding: 0.25rem 0.75rem;
             font-size: 0.75rem;
@@ -364,10 +373,11 @@
                             <th>Peer'ов</th>
                             <th>DNS</th>
                             <th>Статус</th>
+                            <th>Действия</th>
                         </tr>
                     </thead>
                     <tbody id="servers-tbody">
-                        <tr><td colspan="5" class="loading">Загрузка...</td></tr>
+                        <tr><td colspan="6" class="loading">Загрузка...</td></tr>
                     </tbody>
                 </table>
             </div>
@@ -485,12 +495,14 @@
                                     return `
                                         <span class="peer-item ${isConnected ? 'connected' : 'disconnected'}">
                                             <div style="font-weight: 600;">${p.allocatedIp || 'N/A'}</div>
+                                            ${p.server ? `<div class="peer-status" style="font-size: 0.65rem;">Сервер: ${p.server.name || p.serverId.substring(0, 8)}</div>` : ''}
                                             <div class="peer-status ${isConnected ? 'connected' : 'disconnected'}">
                                                 ${isConnected ? '🟢 Подключен' : '🔴 Не подключен'}
                                             </div>
                                             ${handshake && handshake !== 'Нет подключения' ? `<div class="peer-status" style="font-size: 0.65rem;">Handshake: ${handshake}</div>` : ''}
                                             ${transfer ? `<div class="peer-status" style="font-size: 0.65rem;">${transfer}</div>` : ''}
                                             ${endpoint ? `<div class="peer-status" style="font-size: 0.65rem;">IP: ${endpoint.split(':')[0]}</div>` : ''}
+                                            <button class="btn btn-warning btn-small" onclick="migratePeer('${p.id}')" title="Мигрировать на другой сервер" style="margin-top: 0.25rem;">🔄</button>
                                             <button class="btn btn-danger btn-small" onclick="togglePeer('${p.id}', false)" title="Деактивировать" style="margin-top: 0.25rem;">✕</button>
                                         </span>
                                     `;
@@ -552,14 +564,17 @@
                 const servers = await res.json();
                 renderServers(servers);
             } catch (error) {
-                document.getElementById('servers-tbody').innerHTML = `<tr><td colspan="5" class="error">Ошибка загрузки: ${error.message}</td></tr>`;
+                document.getElementById('servers-tbody').innerHTML = `<tr><td colspan="6" class="error">Ошибка загрузки: ${error.message}</td></tr>`;
             }
         }
 
+        let allServers = [];
+
         function renderServers(servers) {
             const tbody = document.getElementById('servers-tbody');
+            allServers = servers;
             if (servers.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; padding: 2rem;">Нет серверов</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 2rem;">Нет серверов</td></tr>';
                 return;
             }
 
@@ -575,6 +590,9 @@
                         <td>${server.currentPeers || 0}</td>
                         <td>${server.dns || '-'}</td>
                         <td>${statusBadge}</td>
+                        <td>
+                            <button class="btn btn-primary btn-small" onclick="changeServerPort('${server.id}', ${server.port})" title="Изменить порт">Порт</button>
+                        </td>
                     </tr>
                 `;
             }).join('');
@@ -660,6 +678,111 @@
                 }
             } catch (error) {
                 showError(`Ошибка: ${error.message}`);
+            }
+        }
+
+        async function migratePeer(peerId) {
+            // Загружаем серверы если еще не загружены
+            if (allServers.length === 0) {
+                try {
+                    const res = await fetch(`${API_URL}/admin/servers?token=${token}`);
+                    allServers = await res.json();
+                } catch (error) {
+                    showError(`Ошибка загрузки серверов: ${error.message}`);
+                    return;
+                }
+            }
+
+            const activeServers = allServers.filter(s => s.isActive);
+            if (activeServers.length < 2) {
+                showError('Нужно минимум 2 активных сервера для миграции');
+                return;
+            }
+
+            // Показываем список серверов для выбора
+            const serverNames = activeServers.map(s => `${s.name} (${s.endpoint}:${s.port})`).join('\n');
+            const selected = prompt(`Выберите сервер для миграции (введите номер от 1 до ${activeServers.length}):\n\n${activeServers.map((s, i) => `${i + 1}. ${s.name} (${s.endpoint}:${s.port})`).join('\n')}`);
+            
+            if (!selected) return;
+            
+            const serverIndex = parseInt(selected, 10) - 1;
+            if (isNaN(serverIndex) || serverIndex < 0 || serverIndex >= activeServers.length) {
+                showError('Неверный выбор сервера');
+                return;
+            }
+
+            const targetServer = activeServers[serverIndex];
+            if (!confirm(`Мигрировать peer на сервер "${targetServer.name}" (${targetServer.endpoint}:${targetServer.port})?`)) return;
+
+            try {
+                const res = await fetch(`${API_URL}/admin/vpn/peers/${peerId}/migrate?token=${token}`, {
+                    method: 'POST',
+                    headers,
+                    body: JSON.stringify({ serverId: targetServer.id })
+                });
+
+                if (res.ok) {
+                    const result = await res.json();
+                    showSuccess(`Peer мигрирован на сервер "${targetServer.name}"`);
+                    
+                    // Показываем новый конфиг
+                    if (result.config) {
+                        const configWindow = window.open('', '_blank', 'width=600,height=400');
+                        configWindow.document.write(`
+                            <html>
+                                <head><title>Новая конфигурация VPN</title></head>
+                                <body style="font-family: monospace; padding: 20px; white-space: pre-wrap;">
+                                    <h2>Новая конфигурация VPN (сервер: ${targetServer.name})</h2>
+                                    <textarea readonly style="width: 100%; height: 300px;">${result.config}</textarea>
+                                    <p><strong>Важно:</strong> Пользователь должен обновить конфигурацию в WireGuard приложении!</p>
+                                </body>
+                            </html>
+                        `);
+                    }
+                    
+                    loadUsers();
+                } else {
+                    const error = await res.json();
+                    throw new Error(error.message || 'Ошибка миграции peer');
+                }
+            } catch (error) {
+                showError(`Ошибка миграции: ${error.message}`);
+            }
+        }
+
+        async function changeServerPort(serverId, currentPort) {
+            const newPort = prompt(`Изменить порт сервера (текущий: ${currentPort}):`, currentPort);
+            if (!newPort) return;
+
+            const port = parseInt(newPort, 10);
+            if (isNaN(port) || port < 1 || port > 65535) {
+                showError('Неверный порт (должен быть от 1 до 65535)');
+                return;
+            }
+
+            if (port === currentPort) {
+                showError('Новый порт совпадает с текущим');
+                return;
+            }
+
+            if (!confirm(`Изменить порт сервера с ${currentPort} на ${port}?\n\n⚠️ Внимание: После изменения порта нужно обновить WireGuard конфигурацию на сервере вручную!`)) return;
+
+            try {
+                const res = await fetch(`${API_URL}/admin/servers/${serverId}?token=${token}`, {
+                    method: 'PATCH',
+                    headers,
+                    body: JSON.stringify({ port })
+                });
+
+                if (res.ok) {
+                    showSuccess(`Порт сервера изменен на ${port}. Обновите конфигурацию WireGuard на сервере!`);
+                    loadServers();
+                } else {
+                    const error = await res.json();
+                    throw new Error(error.message || 'Ошибка изменения порта');
+                }
+            } catch (error) {
+                showError(`Ошибка изменения порта: ${error.message}`);
             }
         }
 

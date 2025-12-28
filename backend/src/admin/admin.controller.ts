@@ -194,6 +194,36 @@ export class AdminController {
     return this.adminService.getWireguardStatus();
   }
 
+  @Post('vpn/peers/:peerId/migrate')
+  async migratePeer(
+    @Param('peerId') peerId: string,
+    @Body() body: { serverId: string },
+    @Req() req: Request,
+  ) {
+    this.checkAuth(req);
+    const result = await this.vpnService.migratePeerToServer(peerId, body.serverId);
+    return {
+      message: 'Peer migrated successfully',
+      peer: result.peer,
+      config: result.config,
+    };
+  }
+
+  @Patch('servers/:id')
+  async updateServer(
+    @Param('id') id: string,
+    @Body() updateData: {
+      port?: number;
+      endpoint?: string;
+      publicIp?: string;
+      isActive?: boolean;
+    },
+    @Req() req: Request,
+  ) {
+    this.checkAuth(req);
+    return this.wireguardService.updateServer(id, updateData);
+  }
+
   @Get('users')
   async getUsers(@Req() req: Request) {
     this.checkAuth(req);

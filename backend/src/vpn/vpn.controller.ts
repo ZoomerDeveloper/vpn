@@ -55,5 +55,18 @@ export class VpnController {
     await this.vpnService.deactivatePeer(peerId, body.userId);
     return { message: 'Peer deleted' };
   }
+
+  @Post('peers/:peerId/migrate')
+  async migratePeer(
+    @Param('peerId') peerId: string,
+    @Body() body: { serverId: string },
+  ) {
+    const result = await this.vpnService.migratePeerToServer(peerId, body.serverId);
+    return {
+      message: 'Peer migrated successfully',
+      peer: result.peer,
+      config: result.config,
+    };
+  }
 }
 

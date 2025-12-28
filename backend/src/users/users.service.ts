@@ -111,7 +111,7 @@ export class UsersService {
 
   async getAll(): Promise<User[]> {
     return this.usersRepository.find({
-      relations: ['peers', 'payments'],
+      relations: ['peers', 'peers.server', 'payments'],
       order: { createdAt: 'DESC' },
     });
   }

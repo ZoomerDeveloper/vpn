@@ -190,13 +190,100 @@ export class VpnService {
         peer.presharedKey,
       );
     } catch (error) {
-      throw new BadRequestException(`Failed to activate peer: ${error.message}`);
+      this.logger.error(`Failed to reactivate peer on server: ${error.message}`);
+      throw new BadRequestException(`Failed to reactivate peer: ${error.message}`);
     }
 
+    // Активируем в БД
     peer.isActive = true;
     await this.peersRepository.save(peer);
 
     this.logger.log(`VPN peer ${peerId} activated`);
+  }
+
+  /**
+   * Мигрирует peer на другой сервер (для обхода блокировок)
+   */
+  async migratePeerToServer(peerId: string, newServerId: string): Promise<{ peer: VpnPeer; config: string }> {
+    const peer = await this.peersRepository.findOne({
+      where: { id: peerId },
+      relations: ['server'],
+    });
+
+    if (!peer) {
+      throw new BadRequestException('Peer not found');
+    }
+
+    if (!peer.isActive) {
+      throw new BadRequestException('Peer is not active');
+    }
+
+    const newServer = await this.wireguardService.findServerById(newServerId);
+    if (!newServer || !newServer.isActive) {
+      throw new BadRequestException('Target server not found or not active');
+    }
+
+    // Если сервер тот же, ничего не делаем
+    if (peer.serverId === newServerId) {
+      const config = await this.wireguardService.generateConfig(
+        peer.server,
+        peer.privateKey,
+        peer.publicKey,
+        peer.presharedKey,
+        peer.allocatedIp,
+      );
+      return { peer, config };
+    }
+
+    this.logger.log(`Migrating peer ${peerId} from server ${peer.serverId} to ${newServerId}`);
+
+    // Сохраняем старый serverId для возможного отката
+    const oldServerId = peer.serverId;
+    const oldAllocatedIp = peer.allocatedIp;
+
+    // Удаляем peer со старого сервера
+    try {
+      await this.wireguardService.removePeer(oldServerId, peer.publicKey);
+    } catch (error) {
+      this.logger.warn(`Failed to remove peer from old server: ${error.message}`);
+    }
+
+    // Выделяем новый IP на новом сервере
+    const newAllocatedIp = this.wireguardService.allocateIp(newServer);
+
+    // Обновляем peer в БД
+    peer.serverId = newServerId;
+    peer.allocatedIp = newAllocatedIp;
+    await this.peersRepository.save(peer);
+
+    // Добавляем peer на новый сервер
+    try {
+      await this.wireguardService.addPeer(
+        newServerId,
+        peer.publicKey,
+        newAllocatedIp,
+        peer.presharedKey,
+      );
+    } catch (error) {
+      // Откатываем изменения в БД
+      peer.serverId = oldServerId;
+      peer.allocatedIp = oldAllocatedIp;
+      await this.peersRepository.save(peer);
+      throw new BadRequestException(`Failed to add peer to new server: ${error.message}`);
+    }
+
+    // Генерируем новый конфиг
+    const config = await this.wireguardService.generateConfig(
+      newServer,
+      peer.privateKey,
+      peer.publicKey,
+      peer.presharedKey,
+      newAllocatedIp,
+    );
+
+    this.logger.log(`Peer ${peerId} migrated successfully to server ${newServerId}`);
+
+    return { peer, config };
   }
 
   /**
@@ -260,4 +347,3 @@ export class VpnService {
     this.logger.log(`Restored ${restored} peers, ${failed} failed`);
   }
 }
-
