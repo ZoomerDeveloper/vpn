@@ -100,10 +100,10 @@ ADDRESS=$(grep "^Address = " "$TEMP_CONFIG" | cut -d'=' -f2 | xargs || echo "")
 
 echo ""
 echo -e "${YELLOW}3. Проверка параметров:${NC}"
-echo "  Endpoint: ${CYAN}${ENDPOINT}${NC}"
-echo "  DNS: ${CYAN}${DNS_VALUE}${NC}"
-echo "  AllowedIPs: ${CYAN}${ALLOWED_IPS}${NC}"
-echo "  Address: ${CYAN}${ADDRESS}${NC}"
+echo -e "  Endpoint: ${CYAN}${ENDPOINT}${NC}"
+echo -e "  DNS: ${CYAN}${DNS_VALUE}${NC}"
+echo -e "  AllowedIPs: ${CYAN}${ALLOWED_IPS}${NC}"
+echo -e "  Address: ${CYAN}${ADDRESS}${NC}"
 
 # 5. Проверяем доступность endpoint
 echo ""
