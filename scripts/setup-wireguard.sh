@@ -4,6 +4,9 @@
 
 set -e
 
+# Игнорируем ошибки IPv6 (может быть отключен)
+trap 'exit_code=$?; if [ $exit_code -ne 0 ] && echo "$BASH_COMMAND" | grep -q "ipv6\|IPv6"; then exit 0; fi' ERR || true
+
 echo "🔧 Setting up WireGuard..."
 
 # Обновляем систему
@@ -14,9 +17,16 @@ apt-get upgrade -y
 apt-get install -y wireguard wireguard-tools iptables qrencode
 
 # Включаем IP forwarding
-echo "net.ipv4.ip_forward=1" >> /etc/sysctl.conf
-echo "net.ipv6.conf.all.forwarding=1" >> /etc/sysctl.conf
-sysctl -p
+if ! grep -q "net.ipv4.ip_forward=1" /etc/sysctl.conf; then
+    echo "net.ipv4.ip_forward=1" >> /etc/sysctl.conf
+fi
+# IPv6 forwarding (если IPv6 доступен)
+if ! grep -q "net.ipv6.conf.all.forwarding=1" /etc/sysctl.conf; then
+    echo "net.ipv6.conf.all.forwarding=1" >> /etc/sysctl.conf 2>/dev/null || true
+fi
+# Применяем настройки (игнорируем ошибки IPv6 если он отключен)
+sysctl -p 2>&1 | grep -v "cannot stat\|No such file" || true
+sysctl -w net.ipv4.ip_forward=1 2>/dev/null || true
 
 # Создаем директорию для конфигов
 mkdir -p /etc/wireguard
