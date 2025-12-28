@@ -94,12 +94,16 @@ export class WireguardService {
     allocatedIp?: string,
   ): Promise<string> {
     const allowedIPs = this.configService.get('WG_ALLOWED_IPS') || '0.0.0.0/0,::/0';
-    const dns = server.dns || this.configService.get('WG_DNS') || '1.1.1.1,8.8.8.8';
+    
+    // Для лучшей работы в РФ используем надежные DNS через VPN
+    // Если DNS не указан, используем Cloudflare и Google DNS
+    const defaultDns = this.configService.get('WG_DNS') || '1.1.1.1,1.0.0.1,8.8.8.8,8.8.4.4';
+    const dns = server.dns || defaultDns;
 
     let config = `[Interface]\n`;
     config += `PrivateKey = ${privateKey}\n`;
     if (allocatedIp) {
-      config += `Address = ${allocatedIp}\n`;
+      config += `Address = ${allocatedIp}/32\n`; // Добавляем /32 для IPv4
     }
     config += `DNS = ${dns}\n\n`;
     config += `[Peer]\n`;
