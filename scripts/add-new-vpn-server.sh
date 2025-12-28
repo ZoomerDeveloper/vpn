@@ -32,11 +32,21 @@ echo ""
 # ШАГ 1: Настройка WireGuard на новом сервере
 echo -e "${YELLOW}ШАГ 1: Настройка WireGuard на сервере $SERVER_IP...${NC}"
 
+# Определяем путь к скрипту (может быть запущен из scripts/ или из корня проекта)
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SETUP_WG_SCRIPT="$SCRIPT_DIR/setup-wireguard.sh"
+
+if [ ! -f "$SETUP_WG_SCRIPT" ]; then
+    echo -e "${RED}❌ Скрипт setup-wireguard.sh не найден: $SETUP_WG_SCRIPT${NC}"
+    exit 1
+fi
+
+# Читаем содержимое скрипта и передаем через SSH
 if [ -z "$SSHPASS" ]; then
     echo -e "${YELLOW}Будет запрошен пароль для SSH${NC}"
-    ssh "$SERVER_USER@$SERVER_IP" "bash -s" < scripts/setup-wireguard.sh
+    cat "$SETUP_WG_SCRIPT" | ssh "$SERVER_USER@$SERVER_IP" "bash -s"
 else
-    sshpass -e ssh "$SERVER_USER@$SERVER_IP" "bash -s" < scripts/setup-wireguard.sh
+    cat "$SETUP_WG_SCRIPT" | sshpass -e ssh "$SERVER_USER@$SERVER_IP" "bash -s"
 fi
 
 # ШАГ 2: Установка MTU = 1280 на новом сервере
