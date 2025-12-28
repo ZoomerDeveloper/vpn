@@ -28,12 +28,25 @@ cd /opt/vpn-service/backend
 npm run migration:run
 ```
 
-### Шаг 3: Альтернатива - SQL напрямую
+### Шаг 3: Альтернатива - SQL напрямую (рекомендуется)
 
-Если миграция не работает, можно выполнить SQL напрямую:
+Если миграция не работает из-за дубликатов, используйте скрипт:
 
 ```bash
-psql -U vpn_user -d vpn_service << EOF
+cd /opt/vpn-service
+bash scripts/apply-migration-sql.sh
+```
+
+Или вручную:
+
+```bash
+cd /opt/vpn-service/backend
+
+# Загрузить переменные из .env
+export $(cat .env | grep -v '^#' | xargs)
+
+# Применить SQL
+PGPASSWORD="$DB_PASSWORD" psql -h "${DB_HOST:-localhost}" -U "$DB_USERNAME" -d "$DB_DATABASE" << EOF
 ALTER TABLE vpn_servers ADD COLUMN IF NOT EXISTS ping INTEGER;
 ALTER TABLE vpn_servers ADD COLUMN IF NOT EXISTS "lastHealthCheck" TIMESTAMP;
 ALTER TABLE vpn_servers ADD COLUMN IF NOT EXISTS "isHealthy" BOOLEAN DEFAULT true;
