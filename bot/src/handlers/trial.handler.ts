@@ -4,6 +4,10 @@ import QRCode from 'qrcode';
 
 export async function trialHandler(ctx: Context, botService: BotService) {
   try {
+    if (!ctx.from) {
+      return;
+    }
+
     const telegramId = ctx.from.id.toString();
     
     let user = await botService.getUserByTelegramId(telegramId);

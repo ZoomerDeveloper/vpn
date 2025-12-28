@@ -3,6 +3,10 @@ import { BotService } from '../services/bot.service';
 
 export async function startHandler(ctx: Context, botService: BotService) {
   try {
+    if (!ctx.from) {
+      return;
+    }
+
     const telegramId = ctx.from.id.toString();
     const username = ctx.from.username;
     const firstName = ctx.from.first_name;

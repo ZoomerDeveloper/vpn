@@ -28,7 +28,16 @@ bot.action(/^tariff:(.+)$/, (ctx) => tariffCallbackHandler(ctx, botService));
 bot.action(/^peer_info:(.+)$/, (ctx) => deviceCallbackHandler(ctx, botService));
 bot.action(/^peer_delete:(.+)$/, async (ctx) => {
   try {
-    const peerId = ctx.match[1];
+    if (!ctx.from) {
+      return;
+    }
+
+    const match = 'match' in ctx && ctx.match;
+    if (!match || !Array.isArray(match) || match.length < 2) {
+      return;
+    }
+
+    const peerId = match[1];
     const telegramId = ctx.from.id.toString();
     
     const user = await botService.getUserByTelegramId(telegramId);
@@ -52,6 +61,10 @@ bot.on('text', async (ctx) => {
   const text = ctx.message.text;
   if (text && /^[a-fA-F0-9]{64}$/.test(text)) {
     try {
+      if (!ctx.from) {
+        return;
+      }
+
       const telegramId = ctx.from.id.toString();
       const user = await botService.getUserByTelegramId(telegramId);
       

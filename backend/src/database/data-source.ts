@@ -17,7 +17,7 @@ export default new DataSource({
   database: process.env.DB_DATABASE || 'vpn_service',
   entities: [User, VpnPeer, Payment, Tariff, VpnServer],
   migrations: ['src/database/migrations/*.ts'],
-  synchronize: false,
+  synchronize: process.env.FORCE_SYNC === 'true', // Используйте FORCE_SYNC=true только для первого запуска
   logging: true,
 });
 

@@ -3,6 +3,10 @@ import { BotService } from '../services/bot.service';
 
 export async function statusHandler(ctx: Context, botService: BotService) {
   try {
+    if (!ctx.from) {
+      return;
+    }
+
     const telegramId = ctx.from.id.toString();
     
     const user = await botService.getUserByTelegramId(telegramId);

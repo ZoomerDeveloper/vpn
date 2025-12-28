@@ -43,7 +43,16 @@ export async function tariffCallbackHandler(ctx: Context, botService: BotService
   try {
     await ctx.answerCbQuery();
 
-    const tariffId = ctx.match[1];
+    if (!ctx.from) {
+      return;
+    }
+
+    const match = 'match' in ctx && ctx.match;
+    if (!match || !Array.isArray(match) || match.length < 2) {
+      return;
+    }
+
+    const tariffId = match[1];
     const telegramId = ctx.from.id.toString();
 
     let user = await botService.getUserByTelegramId(telegramId);

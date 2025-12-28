@@ -4,6 +4,10 @@ import QRCode from 'qrcode';
 
 export async function myDevicesHandler(ctx: Context, botService: BotService) {
   try {
+    if (!ctx.from) {
+      return;
+    }
+
     const telegramId = ctx.from.id.toString();
     
     const user = await botService.getUserByTelegramId(telegramId);
@@ -61,7 +65,12 @@ export async function deviceCallbackHandler(ctx: Context, botService: BotService
   try {
     await ctx.answerCbQuery();
 
-    const peerId = ctx.match[1];
+    const match = 'match' in ctx && ctx.match;
+    if (!match || !Array.isArray(match) || match.length < 2) {
+      return;
+    }
+
+    const peerId = match[1];
     const config = await botService.getPeerConfig(peerId);
 
     // Генерируем QR-код
