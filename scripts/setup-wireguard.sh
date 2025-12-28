@@ -42,14 +42,23 @@ NETWORK="10.0.0.0/24"
 INTERFACE="wg0"
 PORT=51820
 
+# Определяем основной сетевой интерфейс
+MAIN_INTERFACE=$(ip route | grep default | awk '{print $5}' | head -1)
+if [ -z "$MAIN_INTERFACE" ]; then
+    MAIN_INTERFACE="eth0"
+    echo "⚠️  Не удалось определить основной интерфейс, используем eth0"
+else
+    echo "✓ Основной интерфейс: $MAIN_INTERFACE"
+fi
+
 # Создаем конфиг WireGuard
 cat > /etc/wireguard/${INTERFACE}.conf <<EOF
 [Interface]
 Address = ${PRIVATE_IP}/24
 ListenPort = ${PORT}
 PrivateKey = ${SERVER_PRIVATE_KEY}
-PostUp = iptables -A FORWARD -i %i -j ACCEPT; iptables -A FORWARD -o %i -j ACCEPT; iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE
-PostDown = iptables -D FORWARD -i %i -j ACCEPT; iptables -D FORWARD -o %i -j ACCEPT; iptables -t nat -D POSTROUTING -o eth0 -j MASQUERADE
+PostUp = iptables -A FORWARD -i %i -j ACCEPT; iptables -A FORWARD -o %i -j ACCEPT; iptables -t nat -A POSTROUTING -o ${MAIN_INTERFACE} -j MASQUERADE
+PostDown = iptables -D FORWARD -i %i -j ACCEPT; iptables -D FORWARD -o %i -j ACCEPT; iptables -t nat -D POSTROUTING -o ${MAIN_INTERFACE} -j MASQUERADE
 
 # Peers will be added here by the backend
 EOF
