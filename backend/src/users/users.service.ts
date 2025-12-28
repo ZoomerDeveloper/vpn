@@ -80,6 +80,17 @@ export class UsersService {
     return this.usersRepository.save(user);
   }
 
+  async resetTrial(userId: string): Promise<User> {
+    const user = await this.findById(userId);
+    
+    user.trialUsed = false;
+    user.trialStartedAt = null;
+    user.trialExpiresAt = null;
+    user.status = UserStatus.TRIAL;
+    
+    return this.usersRepository.save(user);
+  }
+
   async checkExpiration(): Promise<void> {
     const now = new Date();
     const expiredUsers = await this.usersRepository

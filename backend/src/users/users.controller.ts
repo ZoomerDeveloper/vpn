@@ -53,5 +53,10 @@ export class UsersController {
   ) {
     return this.usersService.startTrial(id, body.hours || 24);
   }
+
+  @Post(':id/reset-trial')
+  async resetTrial(@Param('id') id: string) {
+    return this.usersService.resetTrial(id);
+  }
 }
 
