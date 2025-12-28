@@ -22,14 +22,48 @@ export class AdminService {
   async getWireguardStatus(): Promise<Record<string, any>> {
     try {
       const interfaceName = this.configService.get('WG_INTERFACE') || 'wg0';
-      const { stdout } = await execAsync(`wg show ${interfaceName}`);
+      
+      // Пробуем выполнить wg show (с sudo если доступно, без sudo если работает)
+      let stdout: string;
+      try {
+        // Сначала пробуем с sudo (обычно нужен для wg show)
+        const result = await execAsync(`sudo wg show ${interfaceName} 2>&1`);
+        stdout = result.stdout;
+        // Если в выводе есть ошибка sudo (требует пароль), пробуем без sudo
+        if (stdout.includes('password') || stdout.includes('sudo:')) {
+          throw new Error('Sudo requires password');
+        }
+      } catch (error: any) {
+        // Если sudo не работает, пробуем без sudo
+        this.logger.debug(`Trying wg show without sudo: ${error.message}`);
+        try {
+          const result = await execAsync(`wg show ${interfaceName} 2>&1`);
+          stdout = result.stdout;
+        } catch (err: any) {
+          this.logger.error(`Failed to execute wg show: ${err.message}`);
+          throw err;
+        }
+      }
+      
+      this.logger.debug(`WireGuard status output:\n${stdout}`);
       
       const peers: Record<string, any> = {};
       let currentPeer: string | null = null;
+      let transferLines: string[] = [];
 
       for (const line of stdout.split('\n')) {
-        if (line.startsWith('peer:')) {
-          const publicKey = line.replace('peer:', '').trim();
+        const trimmedLine = line.trim();
+        
+        if (!trimmedLine) continue;
+        
+        if (trimmedLine.startsWith('peer:')) {
+          // Сохраняем предыдущий peer если был
+          if (currentPeer && transferLines.length > 0) {
+            peers[currentPeer].transfer = transferLines.join(', ');
+            transferLines = [];
+          }
+          
+          const publicKey = trimmedLine.replace('peer:', '').trim();
           currentPeer = publicKey;
           peers[publicKey] = {
             publicKey,
@@ -39,21 +73,28 @@ export class AdminService {
             transfer: null,
           };
         } else if (currentPeer) {
-          if (line.includes('endpoint:')) {
-            peers[currentPeer].endpoint = line.replace('endpoint:', '').trim();
-          } else if (line.includes('allowed ips:')) {
-            peers[currentPeer].allowedIps = line.replace('allowed ips:', '').trim();
-          } else if (line.includes('latest handshake:')) {
-            peers[currentPeer].latestHandshake = line.replace('latest handshake:', '').trim();
-          } else if (line.includes('transfer:')) {
-            peers[currentPeer].transfer = line.replace('transfer:', '').trim();
+          if (trimmedLine.startsWith('endpoint:')) {
+            peers[currentPeer].endpoint = trimmedLine.replace(/^endpoint:\s*/, '').trim();
+          } else if (trimmedLine.startsWith('allowed ips:')) {
+            peers[currentPeer].allowedIps = trimmedLine.replace(/^allowed ips:\s*/, '').trim();
+          } else if (trimmedLine.startsWith('latest handshake:')) {
+            peers[currentPeer].latestHandshake = trimmedLine.replace(/^latest handshake:\s*/, '').trim();
+          } else if (trimmedLine.match(/^\d+\s+(B|KB|MB|GB)/)) {
+            // Строка с трафиком (может быть несколько строк для received/sent)
+            transferLines.push(trimmedLine);
           }
         }
       }
+      
+      // Сохраняем transfer для последнего peer
+      if (currentPeer && transferLines.length > 0) {
+        peers[currentPeer].transfer = transferLines.join(', ');
+      }
 
+      this.logger.debug(`Parsed ${Object.keys(peers).length} peers`);
       return peers;
     } catch (error: any) {
-      this.logger.error(`Failed to get WireGuard status: ${error.message}`);
+      this.logger.error(`Failed to get WireGuard status: ${error.message}`, error.stack);
       return {};
     }
   }

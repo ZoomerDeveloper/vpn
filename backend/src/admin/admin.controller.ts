@@ -207,24 +207,34 @@ export class AdminController {
       const peers = user.peers || [];
       const peersWithStatus = peers.map((peer) => {
         if (peer.isActive && peer.publicKey) {
-          const peerData = wgStatus[peer.publicKey];
+            const peerData = wgStatus[peer.publicKey];
           if (peerData) {
             // Определяем подключен ли peer
+            // Peer считается подключенным если есть handshake не старше 3 минут
             let connected = false;
-            if (peerData.latestHandshake) {
-              const handshake = peerData.latestHandshake.toLowerCase();
+            if (peerData.latestHandshake && peerData.latestHandshake.trim() !== '') {
+              const handshake = peerData.latestHandshake.toLowerCase().trim();
+              
+              // Если handshake есть, проверяем его возраст
               if (!handshake.includes('day') && 
                   !handshake.includes('week') && 
                   !handshake.includes('month') &&
                   !handshake.includes('hour')) {
+                // Проверяем минуты
                 const minutesMatch = handshake.match(/(\d+)\s*minute/);
                 if (!minutesMatch) {
-                  connected = true; // Секунды - подключен
+                  // Нет минут - значит секунды, точно подключен
+                  connected = true;
                 } else {
-                  const minutes = parseInt(minutesMatch[1]);
+                  const minutes = parseInt(minutesMatch[1], 10);
+                  // Менее 3 минут считаем подключенным
                   connected = minutes < 3;
                 }
               }
+              // Если старше часа - точно не подключен (connected останется false)
+            } else {
+              // Нет handshake вообще - не подключен
+              connected = false;
             }
             
             return {
