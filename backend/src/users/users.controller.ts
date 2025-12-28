@@ -6,13 +6,20 @@ import {
   Param,
   Patch,
   UseGuards,
+  Inject,
+  forwardRef,
 } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { User } from './entities/user.entity';
+import { VpnService } from '../vpn/vpn.service';
 
 @Controller('users')
 export class UsersController {
-  constructor(private readonly usersService: UsersService) {}
+  constructor(
+    private readonly usersService: UsersService,
+    @Inject(forwardRef(() => VpnService))
+    private readonly vpnService: VpnService,
+  ) {}
 
   @Get()
   async getAll() {
@@ -56,6 +63,9 @@ export class UsersController {
 
   @Post(':id/reset-trial')
   async resetTrial(@Param('id') id: string) {
+    // Удаляем все активные peers пользователя перед сбросом trial
+    await this.vpnService.deleteAllUserPeers(id);
+    // Сбрасываем trial статус
     return this.usersService.resetTrial(id);
   }
 }

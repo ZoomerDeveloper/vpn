@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { VpnController } from './vpn.controller';
 import { VpnService } from './vpn.service';
@@ -10,7 +10,7 @@ import { TariffsModule } from '../tariffs/tariffs.module';
 @Module({
   imports: [
     TypeOrmModule.forFeature([VpnPeer]),
-    UsersModule,
+    forwardRef(() => UsersModule),
     WireguardModule,
     TariffsModule,
   ],

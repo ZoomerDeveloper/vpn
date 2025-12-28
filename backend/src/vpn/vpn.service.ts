@@ -198,5 +198,30 @@ export class VpnService {
 
     this.logger.log(`VPN peer ${peerId} activated`);
   }
+
+  /**
+   * Удаляет все активные peers пользователя (используется при сбросе trial)
+   */
+  async deleteAllUserPeers(userId: string): Promise<void> {
+    const peers = await this.peersRepository.find({
+      where: { userId, isActive: true },
+      relations: ['server'],
+    });
+
+    for (const peer of peers) {
+      // Удаляем peer с сервера
+      try {
+        await this.wireguardService.removePeer(peer.serverId, peer.publicKey);
+      } catch (error) {
+        this.logger.warn(`Failed to remove peer ${peer.id} from server: ${error.message}`);
+      }
+
+      // Деактивируем в БД
+      peer.isActive = false;
+      await this.peersRepository.save(peer);
+    }
+
+    this.logger.log(`Deleted ${peers.length} peers for user ${userId}`);
+  }
 }
 
