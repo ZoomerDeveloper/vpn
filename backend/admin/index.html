@@ -433,9 +433,11 @@
 
         async function loadUsers() {
             try {
-                const res = await fetch(`${API_URL}/admin/users?token=${token}`);
-                allUsers = await res.json();
-                renderUsers(allUsers);
+                // Добавляем timestamp чтобы избежать кэширования браузера
+                const res = await fetch(`${API_URL}/admin/users?token=${token}&_=${Date.now()}`);
+                const users = await res.json();
+                allUsers = users;
+                renderUsers(users);
             } catch (error) {
                 document.getElementById('users-tbody').innerHTML = `<tr><td colspan="7" class="error">Ошибка загрузки: ${error.message}</td></tr>`;
             }
@@ -665,12 +667,17 @@
         loadStats();
         loadUsers();
         
-        // Автоматическое обновление статуса подключения каждые 30 секунд
+        // Автоматическое обновление статуса подключения каждые 10 секунд
         setInterval(() => {
             if (document.getElementById('users-tab').classList.contains('active')) {
                 loadUsers();
             }
-        }, 30000);
+        }, 10000);
+        
+        // Обновляем статистику каждую минуту
+        setInterval(() => {
+            loadStats();
+        }, 60000);
     </script>
 </body>
 </html>
