@@ -96,9 +96,13 @@ export class WireguardService {
     const allowedIPs = this.configService.get('WG_ALLOWED_IPS') || '0.0.0.0/0,::/0';
     
     // Для лучшей работы в РФ используем надежные DNS через VPN
-    // Если DNS не указан, используем Cloudflare и Google DNS
-    const defaultDns = this.configService.get('WG_DNS') || '1.1.1.1,1.0.0.1,8.8.8.8,8.8.4.4';
+    // Если DNS не указан, используем Cloudflare DNS (лучше всего работает в РФ)
+    const defaultDns = this.configService.get('WG_DNS') || '1.1.1.1';
     const dns = server.dns || defaultDns;
+
+    // MTU для лучшей работы через различные сети, особенно в РФ
+    // 1280 - минимальный безопасный MTU, рекомендуется для РФ
+    const mtu = this.configService.get('WG_MTU') || '1280';
 
     let config = `[Interface]\n`;
     config += `PrivateKey = ${privateKey}\n`;
@@ -107,7 +111,8 @@ export class WireguardService {
       const cleanIp = allocatedIp.split('/')[0];
       config += `Address = ${cleanIp}/32\n`;
     }
-    config += `DNS = ${dns}\n\n`;
+    config += `DNS = ${dns}\n`;
+    config += `MTU = ${mtu}\n\n`;
     config += `[Peer]\n`;
     config += `PublicKey = ${server.publicKey}\n`;
     config += `Endpoint = ${server.endpoint}:${server.port}\n`;
