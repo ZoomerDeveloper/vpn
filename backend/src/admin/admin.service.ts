@@ -1,5 +1,8 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { VpnServer } from '../wireguard/entities/vpn-server.entity';
 import { exec } from 'child_process';
 import { promisify } from 'util';
 
@@ -9,7 +12,11 @@ const execAsync = promisify(exec);
 export class AdminService {
   private readonly logger = new Logger(AdminService.name);
 
-  constructor(private configService: ConfigService) {}
+  constructor(
+    private configService: ConfigService,
+    @InjectRepository(VpnServer)
+    private serversRepository: Repository<VpnServer>,
+  ) {}
 
   validateToken(token: string): boolean {
     const adminToken = this.configService.get('ADMIN_TOKEN');
@@ -18,30 +25,47 @@ export class AdminService {
 
   /**
    * Получает статус WireGuard peer'ов (handshake, трафик и т.д.)
+   * Поддерживает проверку на локальном сервере и на удаленных серверах
    */
-  async getWireguardStatus(): Promise<Record<string, any>> {
+  async getWireguardStatus(serverId?: string, serverHost?: string): Promise<Record<string, any>> {
     try {
       const interfaceName = this.configService.get('WG_INTERFACE') || 'wg0';
       
-      // Пробуем выполнить wg show
-      // Сначала пробуем без sudo (если запущено от root, sudo не нужен)
       let stdout: string;
-      try {
-        const result = await execAsync(`wg show ${interfaceName} 2>&1`);
-        stdout = result.stdout;
-      } catch (error: any) {
-        // Если без sudo не работает, пробуем с sudo (для обычных пользователей)
-        this.logger.debug(`Trying wg show with sudo: ${error.message}`);
+      
+      // Если указан serverHost, это удаленный сервер - используем SSH
+      if (serverHost && serverHost !== 'localhost' && !serverHost.startsWith('127.')) {
+        this.logger.debug(`Checking remote server: ${serverHost}`);
         try {
-          const result = await execAsync(`sudo wg show ${interfaceName} 2>&1`);
+          // Используем SSH для выполнения команды на удаленном сервере
+          // Предполагаем что SSH настроен без пароля (ключи)
+          const sshCommand = `ssh -o StrictHostKeyChecking=no -o ConnectTimeout=5 root@${serverHost} "wg show ${interfaceName} 2>&1"`;
+          const result = await execAsync(sshCommand);
           stdout = result.stdout;
-          // Проверяем что это не ошибка sudo
-          if (stdout.includes('password') || stdout.includes('sudo:')) {
-            throw new Error('Sudo requires password');
+        } catch (error: any) {
+          this.logger.warn(`Failed to check remote server ${serverHost}: ${error.message}`);
+          // Возвращаем пустой результат если не удалось подключиться
+          return {};
+        }
+      } else {
+        // Локальный сервер - выполняем команду напрямую
+        try {
+          const result = await execAsync(`wg show ${interfaceName} 2>&1`);
+          stdout = result.stdout;
+        } catch (error: any) {
+          // Если без sudo не работает, пробуем с sudo (для обычных пользователей)
+          this.logger.debug(`Trying wg show with sudo: ${error.message}`);
+          try {
+            const result = await execAsync(`sudo wg show ${interfaceName} 2>&1`);
+            stdout = result.stdout;
+            // Проверяем что это не ошибка sudo
+            if (stdout.includes('password') || stdout.includes('sudo:')) {
+              throw new Error('Sudo requires password');
+            }
+          } catch (err: any) {
+            this.logger.error(`Failed to execute wg show: ${err.message}`);
+            throw err;
           }
-        } catch (err: any) {
-          this.logger.error(`Failed to execute wg show: ${err.message}`);
-          throw err;
         }
       }
       

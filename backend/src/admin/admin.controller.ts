@@ -8,6 +8,7 @@ import {
   Req,
   Res,
   UnauthorizedException,
+  Logger,
 } from '@nestjs/common';
 import { Request, Response } from 'express';
 import { AdminService } from './admin.service';
@@ -20,6 +21,8 @@ import * as fs from 'fs';
 
 @Controller('admin')
 export class AdminController {
+  private readonly logger = new Logger(AdminController.name);
+
   constructor(
     private adminService: AdminService,
     private usersService: UsersService,
@@ -229,15 +232,33 @@ export class AdminController {
     this.checkAuth(req);
     const users = await this.usersService.getAll();
     
-    // Получаем статус всех peer'ов один раз
-    const wgStatus = await this.adminService.getWireguardStatus();
+    // Получаем статус WireGuard для всех серверов
+    // Нужно проверить каждый сервер отдельно через SSH
+    const servers = await this.wireguardService.findAllServers();
+    const allWgStatus: Record<string, Record<string, any>> = {};
+    
+    for (const server of servers) {
+      if (server.isActive) {
+        try {
+          // Используем host (IP адрес сервера) для SSH подключения
+          const serverStatus = await this.adminService.getWireguardStatus(server.id, server.host);
+          allWgStatus[server.id] = serverStatus;
+        } catch (error) {
+          this.logger.warn(`Failed to get status for server ${server.name}: ${error.message}`);
+          allWgStatus[server.id] = {};
+        }
+      }
+    }
 
     // Добавляем статус подключения к каждому пользователю
     const usersWithStatus = users.map((user) => {
       const peers = user.peers || [];
       const peersWithStatus = peers.map((peer) => {
         if (peer.isActive && peer.publicKey) {
-          const peerData = wgStatus[peer.publicKey];
+          // Получаем статус для сервера, на котором находится этот peer
+          const serverStatus = allWgStatus[peer.serverId] || {};
+          const peerData = serverStatus[peer.publicKey];
+          
           if (peerData) {
             // Определяем подключен ли peer
             // Peer считается подключенным если есть handshake не старше 3 минут
