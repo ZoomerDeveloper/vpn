@@ -66,23 +66,31 @@ export async function tariffCallbackHandler(ctx: Context, botService: BotService
 
     // Создаем платеж
     const payment = await botService.createPayment(user.id, tariffId);
-    const { address, amount } = await botService.getPaymentAddress(payment.id);
+    const paymentInfo = await botService.getPaymentAddress(payment.id);
+
+    // Форматируем сумму с учетом оригинальной валюты
+    const originalAmountText = paymentInfo.originalCurrency === 'RUB' 
+      ? `${paymentInfo.originalAmount.toFixed(0)} ₽` 
+      : `${paymentInfo.originalAmount.toFixed(2)} ${paymentInfo.originalCurrency}`;
+    
+    const usdtAmountText = `${paymentInfo.amount.toFixed(2)} USDT`;
 
     const message = `
 💳 *Оплата USDT (TRC20)*
 
-💰 Сумма: *${amount} USDT*
+💰 Сумма: *${originalAmountText}* (~${usdtAmountText})
 📝 ID платежа: \`${payment.id.substring(0, 8)}\`
 
 📤 *Адрес для оплаты:*
-\`${address}\`
+\`${paymentInfo.address}\`
 
 *Инструкция:*
-1. Отправьте ${amount} USDT (TRC20) на указанный адрес
+1. Отправьте ${usdtAmountText} (TRC20) на указанный адрес
 2. После отправки транзакции, отправьте хеш транзакции в ответ на это сообщение
 3. После подтверждения платежа вы получите конфигурацию VPN
 
-⚠️ *Важно:* Отправляйте точную сумму ${amount} USDT
+⚠️ *Важно:* Отправляйте точную сумму ${usdtAmountText}
+💱 *Курс:* ${originalAmountText} ≈ ${usdtAmountText}
     `;
 
     await ctx.editMessageText(message, {

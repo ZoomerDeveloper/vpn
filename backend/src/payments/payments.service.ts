@@ -6,6 +6,7 @@ import { Payment, PaymentStatus, PaymentProvider } from './entities/payment.enti
 import { UsersService } from '../users/users.service';
 import { TariffsService } from '../tariffs/tariffs.service';
 import { VpnService } from '../vpn/vpn.service';
+import { CurrencyService } from './currency.service';
 import axios from 'axios';
 
 @Injectable()
@@ -22,6 +23,7 @@ export class PaymentsService {
     private tariffsService: TariffsService,
     private vpnService: VpnService,
     private configService: ConfigService,
+    private currencyService: CurrencyService,
   ) {
     this.usdtAddress = this.configService.get('USDT_TRC20_ADDRESS') || '';
     this.tronApiUrl = this.configService.get('TRON_NETWORK') || 'https://api.trongrid.io';
@@ -54,8 +56,13 @@ export class PaymentsService {
   /**
    * Генерирует адрес для оплаты USDT TRC20
    */
-  async generatePaymentAddress(paymentId: string): Promise<{ address: string; amount: number }> {
-    const payment = await this.paymentsRepository.findOne({ where: { id: paymentId } });
+  async generatePaymentAddress(
+    paymentId: string,
+  ): Promise<{ address: string; amount: number; originalAmount: number; originalCurrency: string }> {
+    const payment = await this.paymentsRepository.findOne({
+      where: { id: paymentId },
+      relations: ['tariff'],
+    });
 
     if (!payment) {
       throw new Error('Payment not found');
@@ -65,11 +72,19 @@ export class PaymentsService {
       throw new Error('Payment provider is not USDT TRC20');
     }
 
+    // Конвертируем цену из валюты тарифа в USDT
+    let usdtAmount = payment.amount;
+    if (payment.currency === 'RUB') {
+      usdtAmount = await this.currencyService.rubToUsdt(payment.amount);
+    }
+
     // В реальном сценарии здесь должна быть логика генерации уникального адреса
     // или использование sub-адресов. Для MVP используем основной адрес
     return {
       address: this.usdtAddress,
-      amount: payment.amount,
+      amount: usdtAmount,
+      originalAmount: payment.amount,
+      originalCurrency: payment.currency,
     };
   }
 

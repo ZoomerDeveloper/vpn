@@ -96,7 +96,12 @@ export class BotService {
     return response.data;
   }
 
-  async getPaymentAddress(paymentId: string): Promise<{ address: string; amount: number }> {
+  async getPaymentAddress(paymentId: string): Promise<{
+    address: string;
+    amount: number;
+    originalAmount: number;
+    originalCurrency: string;
+  }> {
     const response = await this.api.post(`/payments/${paymentId}/address`);
     return response.data;
   }

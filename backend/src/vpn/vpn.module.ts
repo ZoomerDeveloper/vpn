@@ -6,6 +6,7 @@ import { VpnPeer } from './entities/vpn-peer.entity';
 import { UsersModule } from '../users/users.module';
 import { WireguardModule } from '../wireguard/wireguard.module';
 import { TariffsModule } from '../tariffs/tariffs.module';
+import { PeersRestoreTask } from './peers-restore.task';
 
 @Module({
   imports: [
@@ -15,7 +16,7 @@ import { TariffsModule } from '../tariffs/tariffs.module';
     TariffsModule,
   ],
   controllers: [VpnController],
-  providers: [VpnService],
+  providers: [VpnService, PeersRestoreTask],
   exports: [VpnService],
 })
 export class VpnModule {}

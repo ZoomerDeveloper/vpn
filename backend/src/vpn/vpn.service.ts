@@ -223,5 +223,41 @@ export class VpnService {
 
     this.logger.log(`Deleted ${peers.length} peers for user ${userId}`);
   }
+
+  /**
+   * Восстанавливает все активные peer'ы из БД на WireGuard серверы
+   * Используется при запуске приложения для восстановления peer'ов после перезагрузки
+   */
+  async restoreAllActivePeers(): Promise<void> {
+    this.logger.log('Restoring all active VPN peers...');
+
+    const peers = await this.peersRepository.find({
+      where: { isActive: true },
+      relations: ['server'],
+    });
+
+    let restored = 0;
+    let failed = 0;
+
+    for (const peer of peers) {
+      try {
+        // Пытаемся добавить peer на сервер
+        await this.wireguardService.addPeer(
+          peer.serverId,
+          peer.publicKey,
+          peer.allocatedIp,
+          peer.presharedKey,
+        );
+        restored++;
+      } catch (error) {
+        this.logger.warn(
+          `Failed to restore peer ${peer.id} (${peer.publicKey.substring(0, 12)}...): ${error.message}`,
+        );
+        failed++;
+      }
+    }
+
+    this.logger.log(`Restored ${restored} peers, ${failed} failed`);
+  }
 }
 
