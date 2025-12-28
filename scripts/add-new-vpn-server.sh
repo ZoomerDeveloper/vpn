@@ -60,7 +60,15 @@ MTU_VALUE="1280"
 
 # Проверяем что файл существует
 if [ ! -f "$WG_CONFIG" ]; then
-    echo "❌ Файл конфигурации не найден: $WG_CONFIG"
+    echo "⚠️  Файл конфигурации не найден: $WG_CONFIG"
+    echo "Проверяю статус WireGuard..."
+    systemctl status wg-quick@wg0 || true
+    echo ""
+    echo "Проверяю наличие файлов в /etc/wireguard/..."
+    ls -la /etc/wireguard/ || true
+    echo ""
+    echo "❌ WireGuard конфигурация не создана. Возможно setup-wireguard.sh не выполнился полностью."
+    echo "Попробуйте запустить setup-wireguard.sh вручную на сервере."
     exit 1
 fi
 
@@ -102,7 +110,15 @@ WG_CONFIG="/etc/wireguard/wg0.conf"
 MTU_VALUE="1280"
 
 if [ ! -f "$WG_CONFIG" ]; then
-    echo "❌ Файл конфигурации не найден: $WG_CONFIG"
+    echo "⚠️  Файл конфигурации не найден: $WG_CONFIG"
+    echo "Проверяю статус WireGuard..."
+    systemctl status wg-quick@wg0 || true
+    echo ""
+    echo "Проверяю наличие файлов в /etc/wireguard/..."
+    ls -la /etc/wireguard/ || true
+    echo ""
+    echo "❌ WireGuard конфигурация не создана. Возможно setup-wireguard.sh не выполнился полностью."
+    echo "Попробуйте запустить setup-wireguard.sh вручную на сервере."
     exit 1
 fi
 
