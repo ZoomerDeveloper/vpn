@@ -1,0 +1,628 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VPN Admin Panel</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: #f5f5f5;
+            color: #333;
+        }
+
+        .header {
+            background: #2563eb;
+            color: white;
+            padding: 1rem 2rem;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .header h1 {
+            font-size: 1.5rem;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+
+        .stat-card {
+            background: white;
+            padding: 1.5rem;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .stat-card h3 {
+            color: #666;
+            font-size: 0.875rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .stat-card .value {
+            font-size: 2rem;
+            font-weight: bold;
+            color: #2563eb;
+        }
+
+        .tabs {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 1rem;
+            border-bottom: 2px solid #e5e5e5;
+        }
+
+        .tab {
+            padding: 0.75rem 1.5rem;
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-size: 1rem;
+            color: #666;
+            border-bottom: 2px solid transparent;
+            margin-bottom: -2px;
+        }
+
+        .tab.active {
+            color: #2563eb;
+            border-bottom-color: #2563eb;
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .table-container {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th, td {
+            padding: 1rem;
+            text-align: left;
+            border-bottom: 1px solid #e5e5e5;
+        }
+
+        th {
+            background: #f9fafb;
+            font-weight: 600;
+            color: #374151;
+        }
+
+        tr:hover {
+            background: #f9fafb;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 0.25rem 0.75rem;
+            border-radius: 12px;
+            font-size: 0.875rem;
+            font-weight: 500;
+        }
+
+        .badge-success {
+            background: #d1fae5;
+            color: #065f46;
+        }
+
+        .badge-warning {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .badge-danger {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .badge-info {
+            background: #dbeafe;
+            color: #1e40af;
+        }
+
+        .btn {
+            padding: 0.5rem 1rem;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.875rem;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+
+        .btn-primary {
+            background: #2563eb;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #1d4ed8;
+        }
+
+        .btn-danger {
+            background: #dc2626;
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: #b91c1c;
+        }
+
+        .btn-success {
+            background: #10b981;
+            color: white;
+        }
+
+        .btn-success:hover {
+            background: #059669;
+        }
+
+        .btn-small {
+            padding: 0.25rem 0.75rem;
+            font-size: 0.75rem;
+        }
+
+        .search-box {
+            margin-bottom: 1rem;
+        }
+
+        .search-box input {
+            width: 100%;
+            max-width: 400px;
+            padding: 0.75rem;
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+            font-size: 1rem;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 2rem;
+            color: #666;
+        }
+
+        .error {
+            background: #fee2e2;
+            color: #991b1b;
+            padding: 1rem;
+            border-radius: 6px;
+            margin-bottom: 1rem;
+        }
+
+        .success {
+            background: #d1fae5;
+            color: #065f46;
+            padding: 1rem;
+            border-radius: 6px;
+            margin-bottom: 1rem;
+        }
+
+        .peer-list {
+            margin-top: 0.5rem;
+        }
+
+        .peer-item {
+            display: inline-block;
+            padding: 0.25rem 0.5rem;
+            background: #f3f4f6;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            margin-right: 0.5rem;
+            margin-bottom: 0.5rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🔐 VPN Admin Panel</h1>
+    </div>
+
+    <div class="container">
+        <div id="error-message" class="error" style="display: none;"></div>
+        <div id="success-message" class="success" style="display: none;"></div>
+
+        <div class="stats" id="stats">
+            <div class="stat-card">
+                <h3>Всего пользователей</h3>
+                <div class="value" id="stat-total-users">-</div>
+            </div>
+            <div class="stat-card">
+                <h3>Активных пользователей</h3>
+                <div class="value" id="stat-active-users">-</div>
+            </div>
+            <div class="stat-card">
+                <h3>Всего платежей</h3>
+                <div class="value" id="stat-total-payments">-</div>
+            </div>
+            <div class="stat-card">
+                <h3>Ожидающих платежей</h3>
+                <div class="value" id="stat-pending-payments">-</div>
+            </div>
+            <div class="stat-card">
+                <h3>Доход (₽)</h3>
+                <div class="value" id="stat-revenue">-</div>
+            </div>
+            <div class="stat-card">
+                <h3>Серверов</h3>
+                <div class="value" id="stat-servers">-</div>
+            </div>
+        </div>
+
+        <div class="tabs">
+            <button class="tab active" onclick="switchTab('users')">Пользователи</button>
+            <button class="tab" onclick="switchTab('payments')">Платежи</button>
+            <button class="tab" onclick="switchTab('servers')">Серверы</button>
+        </div>
+
+        <div id="users-tab" class="tab-content active">
+            <div class="search-box">
+                <input type="text" id="user-search" placeholder="Поиск по Telegram ID, username..." oninput="filterUsers()">
+            </div>
+            <div class="table-container">
+                <table id="users-table">
+                    <thead>
+                        <tr>
+                            <th>Telegram ID</th>
+                            <th>Username</th>
+                            <th>Имя</th>
+                            <th>Статус</th>
+                            <th>Истекает</th>
+                            <th>Peer'ы</th>
+                            <th>Действия</th>
+                        </tr>
+                    </thead>
+                    <tbody id="users-tbody">
+                        <tr><td colspan="7" class="loading">Загрузка...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div id="payments-tab" class="tab-content">
+            <div class="table-container">
+                <table id="payments-table">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Пользователь</th>
+                            <th>Тариф</th>
+                            <th>Сумма</th>
+                            <th>Статус</th>
+                            <th>Дата</th>
+                            <th>Действия</th>
+                        </tr>
+                    </thead>
+                    <tbody id="payments-tbody">
+                        <tr><td colspan="7" class="loading">Загрузка...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div id="servers-tab" class="tab-content">
+            <div class="table-container">
+                <table id="servers-table">
+                    <thead>
+                        <tr>
+                            <th>Название</th>
+                            <th>Endpoint</th>
+                            <th>Peer'ов</th>
+                            <th>DNS</th>
+                            <th>Статус</th>
+                        </tr>
+                    </thead>
+                    <tbody id="servers-tbody">
+                        <tr><td colspan="5" class="loading">Загрузка...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_URL = window.location.origin;
+        const token = new URLSearchParams(window.location.search).get('token');
+        
+        if (!token) {
+            document.body.innerHTML = '<div style="text-align: center; padding: 2rem;"><h1>Unauthorized</h1><p>Токен не предоставлен</p></div>';
+        }
+
+        const headers = {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+        };
+
+        function showError(message) {
+            const el = document.getElementById('error-message');
+            el.textContent = message;
+            el.style.display = 'block';
+            setTimeout(() => el.style.display = 'none', 5000);
+        }
+
+        function showSuccess(message) {
+            const el = document.getElementById('success-message');
+            el.textContent = message;
+            el.style.display = 'block';
+            setTimeout(() => el.style.display = 'none', 5000);
+        }
+
+        function switchTab(tabName) {
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+            
+            event.target.classList.add('active');
+            document.getElementById(`${tabName}-tab`).classList.add('active');
+            
+            if (tabName === 'users') loadUsers();
+            else if (tabName === 'payments') loadPayments();
+            else if (tabName === 'servers') loadServers();
+        }
+
+        async function loadStats() {
+            try {
+                const res = await fetch(`${API_URL}/admin/stats?token=${token}`);
+                const stats = await res.json();
+                
+                document.getElementById('stat-total-users').textContent = stats.totalUsers;
+                document.getElementById('stat-active-users').textContent = stats.activeUsers;
+                document.getElementById('stat-total-payments').textContent = stats.totalPayments;
+                document.getElementById('stat-pending-payments').textContent = stats.pendingPayments;
+                document.getElementById('stat-revenue').textContent = Math.round(stats.totalRevenue);
+                document.getElementById('stat-servers').textContent = stats.servers;
+            } catch (error) {
+                console.error('Failed to load stats:', error);
+            }
+        }
+
+        let allUsers = [];
+
+        async function loadUsers() {
+            try {
+                const res = await fetch(`${API_URL}/admin/users?token=${token}`);
+                allUsers = await res.json();
+                renderUsers(allUsers);
+            } catch (error) {
+                document.getElementById('users-tbody').innerHTML = `<tr><td colspan="7" class="error">Ошибка загрузки: ${error.message}</td></tr>`;
+            }
+        }
+
+        function filterUsers() {
+            const search = document.getElementById('user-search').value.toLowerCase();
+            const filtered = allUsers.filter(u => 
+                u.telegramId.toLowerCase().includes(search) ||
+                (u.username && u.username.toLowerCase().includes(search)) ||
+                (u.firstName && u.firstName.toLowerCase().includes(search))
+            );
+            renderUsers(filtered);
+        }
+
+        function renderUsers(users) {
+            const tbody = document.getElementById('users-tbody');
+            if (users.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 2rem;">Нет пользователей</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = users.map(user => {
+                const statusBadge = getStatusBadge(user.status);
+                const expireDate = user.expireAt ? new Date(user.expireAt).toLocaleString('ru-RU') : '-';
+                const peers = user.peers || [];
+                const activePeers = peers.filter(p => p.isActive);
+                
+                return `
+                    <tr>
+                        <td>${user.telegramId}</td>
+                        <td>${user.username || '-'}</td>
+                        <td>${user.firstName || '-'} ${user.lastName || ''}</td>
+                        <td>${statusBadge}</td>
+                        <td>${expireDate}</td>
+                        <td>
+                            <div class="peer-list">
+                                ${activePeers.map(p => `
+                                    <span class="peer-item">
+                                        ${p.allocatedIp || 'N/A'}
+                                        <button class="btn btn-danger btn-small" onclick="togglePeer('${p.id}', false)" title="Деактивировать">✕</button>
+                                    </span>
+                                `).join('')}
+                            </div>
+                        </td>
+                        <td>
+                            <button class="btn btn-primary btn-small" onclick="resetTrial('${user.id}')">Сбросить trial</button>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        async function loadPayments() {
+            try {
+                const res = await fetch(`${API_URL}/admin/payments?token=${token}`);
+                const payments = await res.json();
+                renderPayments(payments);
+            } catch (error) {
+                document.getElementById('payments-tbody').innerHTML = `<tr><td colspan="7" class="error">Ошибка загрузки: ${error.message}</td></tr>`;
+            }
+        }
+
+        function renderPayments(payments) {
+            const tbody = document.getElementById('payments-tbody');
+            if (payments.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 2rem;">Нет платежей</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = payments.map(payment => {
+                const statusBadge = getPaymentStatusBadge(payment.status);
+                const user = payment.user || {};
+                const tariff = payment.tariff || {};
+                const date = new Date(payment.createdAt).toLocaleString('ru-RU');
+                
+                return `
+                    <tr>
+                        <td>${payment.id.substring(0, 8)}...</td>
+                        <td>${user.telegramId || '-'} ${user.username ? `(@${user.username})` : ''}</td>
+                        <td>${tariff.name || '-'}</td>
+                        <td>${payment.amount} ${payment.currency}</td>
+                        <td>${statusBadge}</td>
+                        <td>${date}</td>
+                        <td>
+                            ${payment.status === 'pending' ? `
+                                <button class="btn btn-success btn-small" onclick="confirmPayment('${payment.id}')">Подтвердить</button>
+                            ` : '-'}
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        async function loadServers() {
+            try {
+                const res = await fetch(`${API_URL}/admin/servers?token=${token}`);
+                const servers = await res.json();
+                renderServers(servers);
+            } catch (error) {
+                document.getElementById('servers-tbody').innerHTML = `<tr><td colspan="5" class="error">Ошибка загрузки: ${error.message}</td></tr>`;
+            }
+        }
+
+        function renderServers(servers) {
+            const tbody = document.getElementById('servers-tbody');
+            if (servers.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; padding: 2rem;">Нет серверов</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = servers.map(server => {
+                const statusBadge = server.isActive 
+                    ? '<span class="badge badge-success">Активен</span>'
+                    : '<span class="badge badge-danger">Неактивен</span>';
+                
+                return `
+                    <tr>
+                        <td>${server.name}</td>
+                        <td>${server.endpoint}:${server.port}</td>
+                        <td>${server.currentPeers || 0}</td>
+                        <td>${server.dns || '-'}</td>
+                        <td>${statusBadge}</td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        function getStatusBadge(status) {
+            const badges = {
+                'active': '<span class="badge badge-success">Активен</span>',
+                'trial': '<span class="badge badge-info">Trial</span>',
+                'expired': '<span class="badge badge-danger">Истек</span>',
+                'blocked': '<span class="badge badge-danger">Заблокирован</span>'
+            };
+            return badges[status] || `<span class="badge">${status}</span>`;
+        }
+
+        function getPaymentStatusBadge(status) {
+            const badges = {
+                'pending': '<span class="badge badge-warning">Ожидает</span>',
+                'completed': '<span class="badge badge-success">Завершен</span>',
+                'failed': '<span class="badge badge-danger">Ошибка</span>',
+                'cancelled': '<span class="badge badge-danger">Отменен</span>'
+            };
+            return badges[status] || `<span class="badge">${status}</span>`;
+        }
+
+        async function resetTrial(userId) {
+            if (!confirm('Сбросить trial для этого пользователя?')) return;
+            
+            try {
+                const res = await fetch(`${API_URL}/admin/users/${userId}/reset-trial?token=${token}`, {
+                    method: 'POST',
+                    headers
+                });
+                
+                if (res.ok) {
+                    showSuccess('Trial сброшен');
+                    loadUsers();
+                    loadStats();
+                } else {
+                    throw new Error('Ошибка сброса trial');
+                }
+            } catch (error) {
+                showError(`Ошибка: ${error.message}`);
+            }
+        }
+
+        async function togglePeer(peerId, activate) {
+            const action = activate ? 'activate' : 'deactivate';
+            if (!confirm(`${activate ? 'Активировать' : 'Деактивировать'} peer?`)) return;
+            
+            try {
+                const res = await fetch(`${API_URL}/admin/vpn/peers/${peerId}/${action}?token=${token}`, {
+                    method: 'PATCH',
+                    headers
+                });
+                
+                if (res.ok) {
+                    showSuccess(`Peer ${activate ? 'активирован' : 'деактивирован'}`);
+                    loadUsers();
+                } else {
+                    throw new Error('Ошибка изменения статуса peer');
+                }
+            } catch (error) {
+                showError(`Ошибка: ${error.message}`);
+            }
+        }
+
+        async function confirmPayment(paymentId) {
+            if (!confirm('Подтвердить этот платеж?')) return;
+            
+            try {
+                const res = await fetch(`${API_URL}/admin/payments/${paymentId}/confirm?token=${token}`, {
+                    method: 'POST',
+                    headers
+                });
+                
+                if (res.ok) {
+                    showSuccess('Платеж подтвержден');
+                    loadPayments();
+                    loadStats();
+                } else {
+                    throw new Error('Ошибка подтверждения платежа');
+                }
+            } catch (error) {
+                showError(`Ошибка: ${error.message}`);
+            }
+        }
+
+        // Загружаем данные при загрузке страницы
+        loadStats();
+        loadUsers();
+    </script>
+</body>
+</html>
+

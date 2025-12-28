@@ -10,6 +10,7 @@ import { PaymentsModule } from './payments/payments.module';
 import { TariffsModule } from './tariffs/tariffs.module';
 import { WireguardModule } from './wireguard/wireguard.module';
 import { TasksModule } from './tasks/tasks.module';
+import { AdminModule } from './admin/admin.module';
 
 @Module({
   imports: [
@@ -24,6 +25,7 @@ import { TasksModule } from './tasks/tasks.module';
     TariffsModule,
     WireguardModule,
     TasksModule,
+    AdminModule,
   ],
   controllers: [AppController],
   providers: [AppService],

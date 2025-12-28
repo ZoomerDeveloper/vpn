@@ -226,5 +226,15 @@ export class PaymentsService {
       relations: ['user', 'tariff'],
     });
   }
+
+  /**
+   * Получает все платежи
+   */
+  async getAll(): Promise<Payment[]> {
+    return this.paymentsRepository.find({
+      relations: ['user', 'tariff'],
+      order: { createdAt: 'DESC' },
+    });
+  }
 }
 
