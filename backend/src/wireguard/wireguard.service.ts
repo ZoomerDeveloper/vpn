@@ -224,19 +224,63 @@ export class WireguardService {
   }
 
   /**
-   * Получает доступный сервер
+   * Получает доступный сервер с учетом здоровья, загрузки, приоритета и пинга
+   * Логика как в Капусте VPN: здоровые серверы > приоритет > загрузка > пинг
    */
   async getAvailableServer(): Promise<VpnServer> {
+    // Получаем только активные и здоровые серверы
     const servers = await this.serversRepository.find({
-      where: { isActive: true },
-      order: { currentPeers: 'ASC' },
+      where: { isActive: true, isHealthy: true },
     });
 
     if (servers.length === 0) {
-      throw new Error('No active servers available');
+      // Если нет здоровых серверов, пробуем активные (на случай если мониторинг еще не отработал)
+      const allActiveServers = await this.serversRepository.find({
+        where: { isActive: true },
+      });
+      if (allActiveServers.length === 0) {
+        throw new Error('No active servers available');
+      }
+      // Возвращаем сервер с наименьшей загрузкой среди активных
+      return allActiveServers.sort((a, b) => {
+        const loadA = a.currentPeers / a.maxPeers;
+        const loadB = b.currentPeers / b.maxPeers;
+        return loadA - loadB;
+      })[0];
     }
 
-    // Выбираем сервер с наименьшим количеством peers
+    // Сортируем по алгоритму выбора (как в Капусте VPN):
+    // 1. Приоритет (чем меньше, тем выше приоритет)
+    // 2. Загрузка (currentPeers / maxPeers, чем меньше, тем лучше)
+    // 3. Пинг (если доступен, чем меньше, тем лучше)
+    // 4. Количество peers (как финальный критерий)
+    servers.sort((a, b) => {
+      // Приоритет (по умолчанию 100, если не задан)
+      const priorityA = a.priority ?? 100;
+      const priorityB = b.priority ?? 100;
+      if (priorityA !== priorityB) {
+        return priorityA - priorityB;
+      }
+
+      // Загрузка (процент использования)
+      const loadA = a.maxPeers > 0 ? a.currentPeers / a.maxPeers : 1;
+      const loadB = b.maxPeers > 0 ? b.currentPeers / b.maxPeers : 1;
+      if (Math.abs(loadA - loadB) > 0.1) {
+        // Если разница больше 10%, используем загрузку
+        return loadA - loadB;
+      }
+
+      // Пинг (если доступен)
+      if (a.ping && b.ping) {
+        return a.ping - b.ping;
+      }
+      if (a.ping && !b.ping) return -1;
+      if (!a.ping && b.ping) return 1;
+
+      // Количество peers (финальный критерий)
+      return a.currentPeers - b.currentPeers;
+    });
+
     return servers[0];
   }
 
@@ -295,6 +339,8 @@ export class WireguardService {
       dns: string;
       isActive: boolean;
       maxPeers: number;
+      priority: number;
+      region: string;
     }>,
   ): Promise<VpnServer> {
     const server = await this.findServerById(id);

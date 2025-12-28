@@ -52,6 +52,21 @@ export class VpnServer {
   @Column({ type: 'int', default: 0 })
   currentPeers: number;
 
+  @Column({ type: 'int', nullable: true })
+  ping: number; // Средний пинг в мс
+
+  @Column({ type: 'timestamp', nullable: true })
+  lastHealthCheck: Date;
+
+  @Column({ default: true })
+  isHealthy: boolean; // Доступен ли сервер
+
+  @Column({ type: 'int', default: 100 })
+  priority: number; // Приоритет (чем меньше, тем выше приоритет)
+
+  @Column({ nullable: true })
+  region: string; // Регион сервера (например, 'eu', 'us', 'asia', 'br', 'ru')
+
   @OneToMany(() => VpnPeer, (peer) => peer.server)
   peers: VpnPeer[];
 

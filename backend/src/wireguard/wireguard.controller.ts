@@ -1,9 +1,13 @@
 import { Controller, Get, Post, Body, Param, Delete, Patch } from '@nestjs/common';
 import { WireguardService } from './wireguard.service';
+import { HealthCheckService } from './health-check.service';
 
 @Controller('wireguard')
 export class WireguardController {
-  constructor(private readonly wireguardService: WireguardService) {}
+  constructor(
+    private readonly wireguardService: WireguardService,
+    private readonly healthCheckService: HealthCheckService,
+  ) {}
 
   @Get('servers')
   async getServers() {
@@ -54,6 +58,8 @@ export class WireguardController {
       dns?: string;
       isActive?: boolean;
       maxPeers?: number;
+      priority?: number;
+      region?: string;
     },
   ) {
     return this.wireguardService.updateServer(id, updateData);
@@ -66,6 +72,31 @@ export class WireguardController {
   ) {
     await this.wireguardService.removePeer(serverId, publicKey);
     return { message: 'Peer removed successfully' };
+  }
+
+  /**
+   * Проверяет здоровье всех серверов
+   */
+  @Post('servers/health-check')
+  async checkAllServers() {
+    await this.healthCheckService.checkAllServers();
+    return { message: 'Health check completed' };
+  }
+
+  /**
+   * Проверяет здоровье одного сервера
+   */
+  @Post('servers/:id/health-check')
+  async checkServerHealth(@Param('id') id: string) {
+    await this.healthCheckService.checkSingleServer(id);
+    const server = await this.wireguardService.findServerById(id);
+    return {
+      id: server.id,
+      name: server.name,
+      isHealthy: server.isHealthy,
+      ping: server.ping,
+      lastHealthCheck: server.lastHealthCheck,
+    };
   }
 }
 
