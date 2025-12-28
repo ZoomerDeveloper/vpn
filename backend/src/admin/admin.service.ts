@@ -45,7 +45,12 @@ export class AdminService {
         }
       }
       
-      this.logger.debug(`WireGuard status output:\n${stdout}`);
+      if (!stdout || stdout.trim() === '') {
+        this.logger.warn('WireGuard status output is empty');
+        return {};
+      }
+      
+      this.logger.debug(`WireGuard status output (first 500 chars):\n${stdout.substring(0, 500)}`);
       
       const peers: Record<string, any> = {};
       let currentPeer: string | null = null;
@@ -63,22 +68,27 @@ export class AdminService {
             transferLines = [];
           }
           
-          const publicKey = trimmedLine.replace('peer:', '').trim();
-          currentPeer = publicKey;
-          peers[publicKey] = {
-            publicKey,
-            endpoint: null,
-            allowedIps: null,
-            latestHandshake: null,
-            transfer: null,
-          };
+          const publicKey = trimmedLine.replace(/^peer:\s*/, '').trim();
+          if (publicKey) {
+            currentPeer = publicKey;
+            peers[publicKey] = {
+              publicKey,
+              endpoint: null,
+              allowedIps: null,
+              latestHandshake: null,
+              transfer: null,
+            };
+            this.logger.debug(`Found peer: ${publicKey.substring(0, 16)}...`);
+          }
         } else if (currentPeer) {
           if (trimmedLine.startsWith('endpoint:')) {
             peers[currentPeer].endpoint = trimmedLine.replace(/^endpoint:\s*/, '').trim();
           } else if (trimmedLine.startsWith('allowed ips:')) {
             peers[currentPeer].allowedIps = trimmedLine.replace(/^allowed ips:\s*/, '').trim();
           } else if (trimmedLine.startsWith('latest handshake:')) {
-            peers[currentPeer].latestHandshake = trimmedLine.replace(/^latest handshake:\s*/, '').trim();
+            const handshake = trimmedLine.replace(/^latest handshake:\s*/, '').trim();
+            peers[currentPeer].latestHandshake = handshake;
+            this.logger.debug(`Peer ${currentPeer.substring(0, 16)}... handshake: ${handshake}`);
           } else if (trimmedLine.match(/^\d+\s+(B|KB|MB|GB)/)) {
             // Строка с трафиком (может быть несколько строк для received/sent)
             transferLines.push(trimmedLine);
@@ -91,7 +101,7 @@ export class AdminService {
         peers[currentPeer].transfer = transferLines.join(', ');
       }
 
-      this.logger.debug(`Parsed ${Object.keys(peers).length} peers`);
+      this.logger.log(`Parsed ${Object.keys(peers).length} peers from WireGuard status`);
       return peers;
     } catch (error: any) {
       this.logger.error(`Failed to get WireGuard status: ${error.message}`, error.stack);
