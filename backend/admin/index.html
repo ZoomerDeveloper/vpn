@@ -230,12 +230,37 @@
 
         .peer-item {
             display: inline-block;
-            padding: 0.25rem 0.5rem;
+            padding: 0.5rem;
             background: #f3f4f6;
             border-radius: 4px;
             font-size: 0.75rem;
             margin-right: 0.5rem;
             margin-bottom: 0.5rem;
+            border-left: 3px solid #d1d5db;
+        }
+
+        .peer-item.connected {
+            border-left-color: #10b981;
+            background: #d1fae5;
+        }
+
+        .peer-item.disconnected {
+            border-left-color: #ef4444;
+            background: #fee2e2;
+        }
+
+        .peer-status {
+            font-size: 0.7rem;
+            color: #6b7280;
+            margin-top: 0.25rem;
+        }
+
+        .peer-status.connected {
+            color: #059669;
+        }
+
+        .peer-status.disconnected {
+            color: #dc2626;
         }
     </style>
 </head>
@@ -282,8 +307,11 @@
         </div>
 
         <div id="users-tab" class="tab-content active">
-            <div class="search-box">
-                <input type="text" id="user-search" placeholder="Поиск по Telegram ID, username..." oninput="filterUsers()">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                <div class="search-box" style="flex: 1; margin: 0; margin-right: 1rem;">
+                    <input type="text" id="user-search" placeholder="Поиск по Telegram ID, username..." oninput="filterUsers()">
+                </div>
+                <button class="btn btn-primary" onclick="loadUsers()" title="Обновить статус подключения">🔄 Обновить</button>
             </div>
             <div class="table-container">
                 <table id="users-table">
@@ -445,12 +473,26 @@
                         <td>${expireDate}</td>
                         <td>
                             <div class="peer-list">
-                                ${activePeers.map(p => `
-                                    <span class="peer-item">
-                                        ${p.allocatedIp || 'N/A'}
-                                        <button class="btn btn-danger btn-small" onclick="togglePeer('${p.id}', false)" title="Деактивировать">✕</button>
-                                    </span>
-                                `).join('')}
+                                ${activePeers.map(p => {
+                                    const connStatus = p.connectionStatus || {};
+                                    const isConnected = connStatus.connected || false;
+                                    const handshake = connStatus.latestHandshake || 'Нет подключения';
+                                    const transfer = connStatus.transfer || '';
+                                    const endpoint = connStatus.endpoint || '';
+                                    
+                                    return `
+                                        <span class="peer-item ${isConnected ? 'connected' : 'disconnected'}">
+                                            <div style="font-weight: 600;">${p.allocatedIp || 'N/A'}</div>
+                                            <div class="peer-status ${isConnected ? 'connected' : 'disconnected'}">
+                                                ${isConnected ? '🟢 Подключен' : '🔴 Не подключен'}
+                                            </div>
+                                            ${handshake && handshake !== 'Нет подключения' ? `<div class="peer-status" style="font-size: 0.65rem;">Handshake: ${handshake}</div>` : ''}
+                                            ${transfer ? `<div class="peer-status" style="font-size: 0.65rem;">${transfer}</div>` : ''}
+                                            ${endpoint ? `<div class="peer-status" style="font-size: 0.65rem;">IP: ${endpoint.split(':')[0]}</div>` : ''}
+                                            <button class="btn btn-danger btn-small" onclick="togglePeer('${p.id}', false)" title="Деактивировать" style="margin-top: 0.25rem;">✕</button>
+                                        </span>
+                                    `;
+                                }).join('')}
                             </div>
                         </td>
                         <td>
@@ -622,6 +664,13 @@
         // Загружаем данные при загрузке страницы
         loadStats();
         loadUsers();
+        
+        // Автоматическое обновление статуса подключения каждые 30 секунд
+        setInterval(() => {
+            if (document.getElementById('users-tab').classList.contains('active')) {
+                loadUsers();
+            }
+        }, 30000);
     </script>
 </body>
 </html>

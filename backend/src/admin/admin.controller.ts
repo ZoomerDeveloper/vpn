@@ -133,12 +133,6 @@ export class AdminController {
     };
   }
 
-  @Get('users')
-  async getUsers(@Req() req: Request) {
-    this.checkAuth(req);
-    return this.usersService.getAll();
-  }
-
   @Get('users/:id')
   async getUser(@Param('id') id: string, @Req() req: Request) {
     this.checkAuth(req);
@@ -193,5 +187,74 @@ export class AdminController {
     this.checkAuth(req);
     return this.wireguardService.findAllServers();
   }
-}
+
+  @Get('wireguard/status')
+  async getWireguardStatus(@Req() req: Request) {
+    this.checkAuth(req);
+    return this.adminService.getWireguardStatus();
+  }
+
+  @Get('users')
+  async getUsers(@Req() req: Request) {
+    this.checkAuth(req);
+    const users = await this.usersService.getAll();
+    
+    // Получаем статус всех peer'ов один раз
+    const wgStatus = await this.adminService.getWireguardStatus();
+
+    // Добавляем статус подключения к каждому пользователю
+    const usersWithStatus = users.map((user) => {
+      const peers = user.peers || [];
+      const peersWithStatus = peers.map((peer) => {
+        if (peer.isActive && peer.publicKey) {
+          const peerData = wgStatus[peer.publicKey];
+          if (peerData) {
+            // Определяем подключен ли peer
+            let connected = false;
+            if (peerData.latestHandshake) {
+              const handshake = peerData.latestHandshake.toLowerCase();
+              if (!handshake.includes('day') && 
+                  !handshake.includes('week') && 
+                  !handshake.includes('month') &&
+                  !handshake.includes('hour')) {
+                const minutesMatch = handshake.match(/(\d+)\s*minute/);
+                if (!minutesMatch) {
+                  connected = true; // Секунды - подключен
+                } else {
+                  const minutes = parseInt(minutesMatch[1]);
+                  connected = minutes < 3;
+                }
+              }
+            }
+            
+            return {
+              ...peer,
+              connectionStatus: {
+                connected,
+                latestHandshake: peerData.latestHandshake,
+                endpoint: peerData.endpoint,
+                transfer: peerData.transfer,
+              },
+            };
+          }
+        }
+        return {
+          ...peer,
+          connectionStatus: {
+            connected: false,
+            latestHandshake: null,
+            endpoint: null,
+            transfer: null,
+          },
+        };
+      });
+
+      return {
+        ...user,
+        peers: peersWithStatus,
+      };
+    });
+
+    return usersWithStatus;
+  }
 
