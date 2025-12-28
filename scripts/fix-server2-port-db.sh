@@ -18,12 +18,16 @@ NEW_PORT="${1:-443}"
 echo -e "${CYAN}🔧 Обновление порта server2 в базе данных...${NC}"
 echo ""
 
-# Получаем все серверы
-SERVERS=$(curl -s "${API_URL}/wireguard/servers" 2>/dev/null)
+# Получаем все серверы (с токеном если нужен)
+ADMIN_TOKEN="${ADMIN_TOKEN:-1qaz2wsx}"
+SERVERS=$(curl -s "${API_URL}/wireguard/servers?token=${ADMIN_TOKEN}" 2>/dev/null || curl -s "${API_URL}/wireguard/servers" 2>/dev/null)
 
-if [ -z "$SERVERS" ]; then
+if [ -z "$SERVERS" ] || echo "$SERVERS" | grep -q "error\|Error\|401"; then
     echo -e "${RED}❌ Не удалось получить список серверов${NC}"
-    echo -e "${YELLOW}Проверьте что backend запущен и доступен${NC}"
+    echo -e "${YELLOW}Проверьте что:${NC}"
+    echo "  - Backend запущен"
+    echo "  - API доступен: curl ${API_URL}/wireguard/servers"
+    echo "  - Вы на основном сервере (где backend)"
     exit 1
 fi
 
@@ -65,12 +69,11 @@ echo -e "${GREEN}✓ Найден server2 ID: ${SERVER2_ID:0:8}...${NC}"
 echo ""
 echo -e "${YELLOW}Обновляю порт на $NEW_PORT через API...${NC}"
 
-# Получаем ADMIN_TOKEN из .env или используем дефолтный
-ADMIN_TOKEN="${ADMIN_TOKEN:-1qaz2wsx}"
-
 UPDATE_RESPONSE=$(curl -s -X PATCH "${API_URL}/admin/servers/${SERVER2_ID}?token=${ADMIN_TOKEN}" \
   -H "Content-Type: application/json" \
   -d "{\"port\": $NEW_PORT}" 2>/dev/null)
+  
+echo "Ответ API: $UPDATE_RESPONSE"
 
 if echo "$UPDATE_RESPONSE" | grep -q "\"port\":.*$NEW_PORT"; then
     echo -e "${GREEN}✓ Порт обновлен через API${NC}"
